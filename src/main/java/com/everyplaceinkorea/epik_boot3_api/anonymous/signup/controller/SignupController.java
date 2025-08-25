@@ -25,23 +25,22 @@ public class SignupController {
 
     //1. username 중복확인
     @PostMapping("/checkUsername")
-    public ResponseEntity<UsernameCheckDto> checkUsername(
-            @RequestBody UsernameCheckDto usernameCheckDto
-    ){
+    public ResponseEntity<UsernameCheckDto> checkUsername(@RequestBody UsernameCheckDto usernameCheckDto){
+
         return ResponseEntity.ok(signupService.usernameCheck(usernameCheckDto));
     }
 
     //2. nickname 중복확인
     @PostMapping("/checkNickname")
-    public ResponseEntity<NicknameCheckDto> checkUsername(
-            @RequestBody NicknameCheckDto nicknameCheckDto
-    ){
+    public ResponseEntity<NicknameCheckDto> checkUsername(@RequestBody NicknameCheckDto nicknameCheckDto){
+
         return ResponseEntity.ok(signupService.nicknameCheck(nicknameCheckDto));
     }
 
     //3. email 인증 확인
     @PostMapping("/checkEmail")
     public Map<String, String> sendemail(@RequestBody EmailCheckDto emailCheckDto){
+
         return signupService.emailCheck(emailCheckDto);
     }
 
@@ -50,7 +49,7 @@ public class SignupController {
     public ResponseEntity<SignupRequestDto> signup(@RequestBody SignupRequestDto signupRequestDto) {
 
         SignupRequestDto saved = signupService.signup(signupRequestDto);
-        System.out.println(saved);
+
         return ResponseEntity.ok(saved);
     }
 
