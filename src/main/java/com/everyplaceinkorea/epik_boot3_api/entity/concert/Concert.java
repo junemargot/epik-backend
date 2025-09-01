@@ -36,12 +36,10 @@ public class Concert {
   @Column(name = "venue", nullable = false)
   private String venue;
 
-  @Column(name = "start_date", nullable = false)
-  @ColumnDefault("current_timestamp()")
+  @Column(name = "start_date", nullable = false, columnDefinition = "DATE NOT NULL")
   private LocalDate startDate;
 
-  @Column(name = "end_date", nullable = false)
-  @ColumnDefault("current_timestamp()")
+  @Column(name = "end_date", nullable = false, columnDefinition = "DATE NOT NULL")
   private LocalDate endDate;
 
 //  @Column(name = "img_src", nullable = false)

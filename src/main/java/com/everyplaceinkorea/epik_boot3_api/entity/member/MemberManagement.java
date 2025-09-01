@@ -21,14 +21,12 @@ public class MemberManagement {
   @Column(name = "delete_reason", columnDefinition = "TEXT")
   private String deleteReason;
 
-  @Column(name = "delete_date")
-  @ColumnDefault("current_timestamp()")
+  @Column(name = "delete_date", columnDefinition = "DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6)")
   private Instant deleteDate;
 
   @Column(name = "resign_reason", columnDefinition = "TEXT")
   private String resignReason;
 
-  @Column(name = "resign_date")
-  @ColumnDefault("current_timestamp()")
+  @Column(name = "resign_date", columnDefinition = "DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6)")
   private Instant resignDate;
 }

@@ -2,7 +2,7 @@ package com.everyplaceinkorea.epik_boot3_api.entity.member;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -33,14 +33,13 @@ public class Member {
     @Column(name = "email", nullable = false)
     private String email;
 
-    @Column(name = "join_date", nullable = false)
-    @ColumnDefault("current_timestamp()")
+    @Column(name = "join_date", nullable = false, columnDefinition = "DATE NOT NULL")
     private LocalDate joinDate;
 
     @Column(name = "type", nullable = false) //
     private Byte type;
 
-    //nullable 소셜 로그인 추가 성공 후 false로 변경 필요
+    // nullable 소셜 로그인 추가 성공 후 false로 변경 필요
     @Enumerated(EnumType.STRING) // DB에 "ID", "NAVER".. 문자열로 저장됨
     @Column(name = "login_type", nullable = true)
     private LoginType loginType;
@@ -49,8 +48,8 @@ public class Member {
     private String role;
 
     //nullable 방문 기록 추가 성공 후 false로 변경 필요
-    @Column(name = "last_access", nullable = true)
-    @ColumnDefault("current_timestamp()")
+    @Column(name = "last_access", nullable = true, columnDefinition = "DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6)")
+    @CreationTimestamp
     private LocalDateTime lastAccess;
 
     @Column(name = "profile_img", nullable = true)
