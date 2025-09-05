@@ -80,7 +80,7 @@ public class Musical {
     @Column(name = "kopis_fcltynm")
     private String kopisFcltynm;
 
-    @Column(name = "kopisPrfstate")
+    @Column(name = "kopis_prfstate")
     private String kopisPrfstate;
 
     @Column(name = "kopis_genrenm")
@@ -131,14 +131,21 @@ public class Musical {
         musical.setKopisPoster(dto.getPoster());
 
         // 가공된 데이터 설정
-        musical.setTitle(cleanKopisTitle(dto.getPrfnm()));
-        musical.setVenue(dto.getFcltynm());
+        musical.setTitle(cleanKopisTitle(dto.getPrfnm()) != null && !cleanKopisTitle(dto.getPrfnm()).trim().isEmpty() 
+                         ? cleanKopisTitle(dto.getPrfnm()) : "제목 없음");
+        musical.setVenue(dto.getFcltynm() != null && !dto.getFcltynm().trim().isEmpty() 
+                         ? dto.getFcltynm() : "공연장 정보 없음");
         musical.setContent(generateKopisContent(dto));
-        musical.setAddress("");
+        musical.setAddress(dto.getArea() != null && !dto.getArea().trim().isEmpty() 
+                           ? dto.getArea() : "주소 정보 없음");
 
         // 날짜 변환
-        musical.setStartDate(parseKopisDate(dto.getPrfpdfrom()));
-        musical.setEndDate(parseKopisDate(dto.getPrfpdto()));
+        musical.setStartDate(parseKopisDate(dto.getPrfpdfrom()) != null 
+                             ? parseKopisDate(dto.getPrfpdfrom()) 
+                             : LocalDate.now());
+        musical.setEndDate(parseKopisDate(dto.getPrfpdto()) != null 
+                           ? parseKopisDate(dto.getPrfpdto()) 
+                           : LocalDate.now().plusDays(1));
 
         // 메타데이터 설정
         musical.setDataSource(DataSource.KOPIS_API);
@@ -147,6 +154,15 @@ public class Musical {
         musical.setMember(member);
         musical.setStatus(Status.ACTIVE);
         musical.setViewCount(0);
+        
+        // KOPIS 포스터를 기존 이미지 시스템에 연결
+        if (dto.getPoster() != null && !dto.getPoster().trim().isEmpty()) {
+            musical.setFileSavedName(extractFileNameFromUrl(dto.getPoster()));
+        }
+        
+        // 추가 필드 매핑
+        musical.setRunningTime(dto.getOpenrun() != null && dto.getOpenrun().equals("Y") ? "오픈런" : null);
+        musical.setAgeRestriction("전체 관람가");
 
         return musical;
     }
@@ -169,23 +185,60 @@ public class Musical {
         this.content = generateKopisContent(dto);
 
         // 날짜 업데이트
-        this.startDate = parseKopisDate(dto.getPrfpdfrom());
-        this.endDate = parseKopisDate(dto.getPrfpdto());
+        this.startDate = parseKopisDate(dto.getPrfpdfrom()) != null 
+                         ? parseKopisDate(dto.getPrfpdfrom()) 
+                         : this.startDate; // 기존 값 유지
+        this.endDate = parseKopisDate(dto.getPrfpdto()) != null 
+                       ? parseKopisDate(dto.getPrfpdto()) 
+                       : this.endDate; // 기존 값 유지
 
         // 동기화 시간 갱신
         this.lastSynced = LocalDateTime.now();
+        
+        // KOPIS 포스터를 기존 이미지 시스템에 연결
+        if (dto.getPoster() != null && !dto.getPoster().trim().isEmpty()) {
+            this.fileSavedName = extractFileNameFromUrl(dto.getPoster());
+        }
+        
+        // 추가 필드 업데이트
+        this.runningTime = dto.getOpenrun() != null && dto.getOpenrun().equals("Y") ? "오픈런" : this.runningTime;
+        if (this.ageRestriction == null) {
+            this.ageRestriction = "전체 관람가";
+        }
+    }
+
+    /**
+     * URL에서 파일명 추출
+     */
+    private static String extractFileNameFromUrl(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            return null;
+        }
+        
+        try {
+            String[] parts = url.split("/");
+            return parts[parts.length - 1]; // 마지막 부분이 파일명
+        } catch (Exception e) {
+            return "kopis_poster.jpg"; // 기본 파일명
+        }
     }
 
     /**
      * KOPIS 날짜 형식을 LocalDate로 변환
      */
     private static LocalDate parseKopisDate(String kopisDate) {
-        if(kopisDate == null || kopisDate.isEmpty()) {
+        if(kopisDate == null || kopisDate.trim().isEmpty()) {
             return null;
         }
 
         try {
-            return LocalDate.parse(kopisDate, DateTimeFormatter.ofPattern("yyyyMMdd"));
+            // YYYYMMDD 형식 파싱
+            String cleanDate = kopisDate.trim().replaceAll("[^0-9]", ""); // 숫자만 추출
+            if (cleanDate.length() == 8) {
+                return LocalDate.parse(cleanDate, DateTimeFormatter.ofPattern("yyyyMMdd"));
+            } else {
+                return null;
+            }
         } catch(Exception e) {
             return null;
         }
@@ -197,7 +250,7 @@ public class Musical {
     private static String cleanKopisTitle(String title) {
         if(title == null) return "";
         return title.trim()
-                .replaceAll("\\\\[.*?\\\\]", "")  // [대학로] 제거 (대괄호)
+                .replaceAll("\\[.*?\\]", "")  // [대학로] 제거 (대괄호)
                 .replaceAll("\\(.*?\\)", "")  // (재공연) 제거
                 .trim();
     }
