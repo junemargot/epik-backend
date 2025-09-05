@@ -1,6 +1,7 @@
 package com.everyplaceinkorea.epik_boot3_api.entity.concert;
 
 import com.everyplaceinkorea.epik_boot3_api.admin.contents.concert.dto.ConcertUploadResultDto;
+import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.Status;
 import com.everyplaceinkorea.epik_boot3_api.entity.Region;
@@ -78,6 +79,35 @@ public class Concert {
   @JoinColumn(name = "region_id")
   private Region region;
 
+  // KOPIS API 관련 필드
+  @Enumerated(EnumType.STRING)
+  @Column(name = "data_source")
+  private DataSource dataSource = DataSource.MANUAL;
+
+  @Column(name = "kopis_id", unique = true)
+  private String kopisId;
+
+  @Column(name = "last_synced")
+  private LocalDateTime lastSynced;  // 마지막 동기화 시간
+
+  // KOPIS 원본 데이터 보존 필드들
+  @Column(name = "kopis_prfnm")
+  private String kopisPrfnm; // KOPIS 공연명
+
+  @Column(name = "kopis_fcltynm")
+  private String kopisFcltynm; // KOPIS 공연장명
+
+  @Column(name = "kopisPrfstate")
+  private String kopisPrfstate; // KOPIS 공연상태
+
+  @Column(name = "kopis_genrenm")
+  private String kopisGenrenm; // KOPIS 장르명
+
+  @Column(name = "kopis_area")
+  private String kopisArea; // KOPIS 지역 정보
+
+  @Column(name = "kopis_poster")
+  private String kopisPoster; // KOPIS 포스터 이미지 URL
 
   public void addImage(ConcertUploadResultDto uploadResult) {
     this.filePath = uploadResult.getFilePath();
