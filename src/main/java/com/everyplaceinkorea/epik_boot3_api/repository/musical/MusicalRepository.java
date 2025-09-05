@@ -1,5 +1,6 @@
 package com.everyplaceinkorea.epik_boot3_api.repository.musical;
 
+import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.Musical;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.Status;
 import org.springframework.data.domain.Page;
@@ -9,7 +10,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface MusicalRepository extends JpaRepository<Musical, Long> {
 
@@ -59,10 +62,16 @@ public interface MusicalRepository extends JpaRepository<Musical, Long> {
     @Query("SELECT m FROM Musical m WHERE (:regionId IS NULL OR m.region.id = :regionId) AND m.endDate >= :endDate AND m.status = 'ACTIVE'")
     Page<Musical> findMusicalsByRegion(@Param("regionId") Long regionId, @Param("endDate") LocalDate endDate, Pageable pageable);
 
-    // 랜덤이미지조회
-    @Query(value = "SELECT m FROM Musical m ORDER BY RAND() LIMIT 10")
+    // 랜덤이미지조회 - 모두 nativeQuery로 통일
+    @Query(value = "SELECT * FROM musical ORDER BY RAND() LIMIT 10", nativeQuery = true)
     List<Musical> findMusicalByRandom();
 
-    @Query(value = "SELECT * FROM Musical WHERE end_date >= :today ORDER BY RAND() LIMIT 10", nativeQuery = true)
+    @Query(value = "SELECT * FROM musical WHERE end_date >= :today ORDER BY RAND() LIMIT 10", nativeQuery = true)
     List<Musical> findActiveMusicalByRandom(@Param("today") LocalDate today);
+
+    // KOPIS 관련 메서드 추가
+    Optional<Musical> findByKopisId(String kopisId);
+    List<Musical> findByDataSource(DataSource dataSource);
+    List<Musical> findByDataSourceAndLastSyncedAfter(DataSource dataSource, LocalDateTime dateTime);
+
 }

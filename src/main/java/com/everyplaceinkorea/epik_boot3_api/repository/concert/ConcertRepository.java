@@ -1,8 +1,7 @@
 package com.everyplaceinkorea.epik_boot3_api.repository.concert;
 
-import com.everyplaceinkorea.epik_boot3_api.entity.Notice;
+import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.concert.Concert;
-import com.everyplaceinkorea.epik_boot3_api.entity.musical.Musical;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -10,7 +9,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface ConcertRepository extends JpaRepository<Concert, Long> {
 
@@ -32,11 +33,14 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
   @Query("SELECT c FROM Concert c WHERE (:regionId IS NULL OR c.region.id = :regionId) AND c.endDate >= :endDate AND c.status = 'ACTIVE'")
   Page<Concert> findConcertsByRegion(@Param("regionId") Long regionId, @Param("endDate") LocalDate endDate, Pageable pageable);
 
-  // 랜덤이미지조회
-  @Query(value = "SELECT c FROM Concert c ORDER BY RAND() LIMIT 10")
+  // 랜덤이미지조회 - JPQL 버전으로 수정
+  @Query(value = "SELECT * FROM concert ORDER BY RAND() LIMIT 10", nativeQuery = true)
   List<Concert> findConcertByRandom();
 
-  @Query(value = "SELECT * FROM Concert WHERE end_date >= :today ORDER BY RAND() LIMIT 10", nativeQuery = true)
+  @Query(value = "SELECT * FROM concert WHERE end_date >= :today ORDER BY RAND() LIMIT 10", nativeQuery = true)
   List<Concert> findActiveConcertByRandom(@Param("today") LocalDate today);
 
+  Optional<Concert> findByKopisId(String kopisId);
+  List<Concert> findByDataSource(DataSource dataSource);
+  List<Concert> findByDataSourceAndLastSyncedAfter(DataSource dataSource, LocalDateTime dateTime);
 }
