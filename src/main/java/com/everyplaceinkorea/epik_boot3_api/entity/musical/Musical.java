@@ -4,11 +4,13 @@ import com.everyplaceinkorea.epik_boot3_api.admin.contents.musical.enums.Status;
 import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.entity.Region;
+import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.KopisPerformanceDto;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -113,6 +115,102 @@ public class Musical {
         this.status = Status.DELETE;
     }
 
+    /**
+     * KOPIS 데이터로부터 musical 엔티티 생성
+     */
+    public static Musical fromKopisData(KopisPerformanceDto dto, Region region, Member member) {
+        Musical musical = new Musical();
 
+        // KOPIS 원본 데이터 보존
+        musical.setKopisId(dto.getMt20id());
+        musical.setKopisPrfnm(dto.getPrfnm());
+        musical.setKopisFcltynm(dto.getFcltynm());
+        musical.setKopisGenrenm(dto.getGenrenm());
+        musical.setKopisPrfstate(dto.getPrfstate());
+        musical.setKopisArea(dto.getArea());
+        musical.setKopisPoster(dto.getPoster());
+
+        // 가공된 데이터 설정
+        musical.setTitle(cleanKopisTitle(dto.getPrfnm()));
+        musical.setVenue(dto.getFcltynm());
+        musical.setContent(generateKopisContent(dto));
+        musical.setAddress("");
+
+        // 날짜 변환
+        musical.setStartDate(parseKopisDate(dto.getPrfpdfrom()));
+        musical.setEndDate(parseKopisDate(dto.getPrfpdto()));
+
+        // 메타데이터 설정
+        musical.setDataSource(DataSource.KOPIS_API);
+        musical.setLastSynced(LocalDateTime.now());
+        musical.setRegion(region);
+        musical.setMember(member);
+        musical.setStatus(Status.ACTIVE);
+        musical.setViewCount(0);
+
+        return musical;
+    }
+
+    /**
+     * 기존 musical를 KOPIS 데이터로 업데이트
+     */
+    public void updateFromKopisData(KopisPerformanceDto dto) {
+        // KOPIS 원본 데이터 업데이트
+        this.kopisPrfnm = dto.getPrfnm();
+        this.kopisFcltynm = dto.getFcltynm();
+        this.kopisGenrenm = dto.getGenrenm();
+        this.kopisPrfstate = dto.getPrfstate();
+        this.kopisArea = dto.getArea();
+        this.kopisPoster = dto.getPoster();
+
+        // 가공된 데이터 업데이트
+        this.title = cleanKopisTitle(dto.getPrfnm());
+        this.venue = dto.getFcltynm();
+        this.content = generateKopisContent(dto);
+
+        // 날짜 업데이트
+        this.startDate = parseKopisDate(dto.getPrfpdfrom());
+        this.endDate = parseKopisDate(dto.getPrfpdto());
+
+        // 동기화 시간 갱신
+        this.lastSynced = LocalDateTime.now();
+    }
+
+    /**
+     * KOPIS 날짜 형식을 LocalDate로 변환
+     */
+    private static LocalDate parseKopisDate(String kopisDate) {
+        if(kopisDate == null || kopisDate.isEmpty()) {
+            return null;
+        }
+
+        try {
+            return LocalDate.parse(kopisDate, DateTimeFormatter.ofPattern("yyyyMMdd"));
+        } catch(Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * KOPIS 공연명 정리
+     */
+    private static String cleanKopisTitle(String title) {
+        if(title == null) return "";
+        return title.trim()
+                .replaceAll("\\\\[.*?\\\\]", "")  // [대학로] 제거 (대괄호)
+                .replaceAll("\\(.*?\\)", "")  // (재공연) 제거
+                .trim();
+    }
+
+    /**
+     * KOPIS 정보로 기본 설명 생성
+     */
+    private static String generateKopisContent(KopisPerformanceDto dto) {
+        StringBuilder content = new StringBuilder();
+        if (dto.getGenrenm() != null) content.append("장르: ").append(dto.getGenrenm()).append("\n");
+        if (dto.getArea() != null) content.append("지역: ").append(dto.getArea()).append("\n");
+        if (dto.getPrfstate() != null) content.append("공연상태: ").append(dto.getPrfstate()).append("\n");
+        return content.toString();
+    }
 }
 
