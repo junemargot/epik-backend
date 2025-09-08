@@ -31,10 +31,10 @@ public interface ExhibitionRepository extends JpaRepository<Exhibition, Long> {
   @Query("SELECT e FROM Exhibition e WHERE (:regionId IS NULL OR e.region.id = :regionId) AND e.endDate >= :endDate AND e.status = 'ACTIVE'")
   Page<Exhibition> findExhibitionsByRegion(@Param("regionId") Long regionId, @Param("endDate") LocalDate endDate, Pageable pageable);
 
-  // 랜덤이미지조회
-  @Query(value = "SELECT e FROM Exhibition e ORDER BY RAND() LIMIT 10")
+    // 랜덤이미지조회
+  @Query(value = "SELECT * FROM exhibition ORDER BY RAND() LIMIT 10", nativeQuery = true)
   List<Exhibition> findExhibitionByRandom();
 
-  @Query(value = "SELECT * FROM Exhibition WHERE end_date >= :today ORDER BY RAND() LIMIT 10", nativeQuery = true)
+  @Query(value = "SELECT * FROM exhibition WHERE end_date >= :today ORDER BY RAND() LIMIT 10", nativeQuery = true)
   List<Exhibition> findActiveExhibitionByRandom(@Param("today") LocalDate today);
 }

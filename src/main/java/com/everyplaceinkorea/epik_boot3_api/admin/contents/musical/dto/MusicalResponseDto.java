@@ -1,5 +1,6 @@
 package com.everyplaceinkorea.epik_boot3_api.admin.contents.musical.dto;
 
+import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -22,12 +23,25 @@ public class MusicalResponseDto {
     private LocalDate startDate; // 시작일
     private LocalDate endDate; // 종료일
     private String saveImageName; // 저장된 이미지 경로
+    private String imageUrl;      // 실제 이미지 URL (추가)
     private String runningTime; // 관람시간
     private String ageRestriction; // 관람 연령
     private List<MusicalTicketPriceDto> ticketPrices; // 티켓 금액
     private List<MusicalTicketOfficeDto> ticketOffices; // 티켓 예매처
     private LocalDateTime writeDate; // 등록일
+    private DataSource dataSource;  // 데이터 출처
 
+    // 이미지 URL 동적 생성
+    public String getImageUrl() {
+        if(dataSource == DataSource.KOPIS_API) {
+            return this.imageUrl;
+        } else {
+            if(saveImageName != null && !saveImageName.trim().isEmpty()) {
+                return "http://localhost:8081/api/v1/uploads/images/musical/" + saveImageName;
+            }
+        }
+        return null;
+    }
 }
 
 /*

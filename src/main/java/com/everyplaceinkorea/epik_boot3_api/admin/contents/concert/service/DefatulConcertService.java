@@ -2,6 +2,7 @@ package com.everyplaceinkorea.epik_boot3_api.admin.contents.concert.service;
 
 import com.everyplaceinkorea.epik_boot3_api.admin.contents.concert.dto.*;
 import com.everyplaceinkorea.epik_boot3_api.entity.Region;
+import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.concert.*;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.EditorImage.UploadFolderType;
@@ -119,8 +120,20 @@ public class DefatulConcertService implements ConcertService {
 
     ConcertResponseDto concertResponseDto = modelMapper.map(concert, ConcertResponseDto.class);
     concertResponseDto.setWriter(concert.getMember().getNickname()); // 닉네임 설정
-    concertResponseDto.setSaveImageName(concert.getFileSavedName()); // 이미지 경로 설정 추가 부분
+//    concertResponseDto.setSaveImageName(concert.getFileSavedName()); // 이미지 경로 설정 추가 부분
 
+    // 데이터 소스 설정
+    concertResponseDto.setDataSource(concert.getDataSource());
+
+    // 이미지 처리 로직 개선
+    if(concert.getDataSource() == DataSource.KOPIS_API) {
+      concertResponseDto.setImageUrl(concert.getKopisPoster()); // KOPIS 원본 포스터 URL
+      concertResponseDto.setSaveImageName(concert.getFileSavedName()); // 파일명 설정
+    } else {
+      concertResponseDto.setSaveImageName(concert.getFileSavedName());
+    }
+
+    // 티켓 오피스 정보 설정
     List<ConcertTicketOfficeDto> concertTicketOfficeDtos = new ArrayList<>();
     for(ConcertTicketOffice ticketOffice : concertTicket) {
       ConcertTicketOfficeDto ticketOfficeDto = modelMapper.map(ticketOffice, ConcertTicketOfficeDto.class);
@@ -130,6 +143,7 @@ public class DefatulConcertService implements ConcertService {
     concertResponseDto.setTicketOffices(concertTicketOfficeDtos); // loop 밖에서 한 번만 설정
 
 
+    // 티켓 가격 정보 설정
     List<ConcertTicketPriceDto> concertTicketPriceDtos = new ArrayList<>();
     for(ConcertTicketPrice ticketPrice : concertPrice) {
       ConcertTicketPriceDto ticketPriceDto = modelMapper.map(ticketPrice, ConcertTicketPriceDto.class);
@@ -137,6 +151,9 @@ public class DefatulConcertService implements ConcertService {
       concertTicketPriceDtos.add(ticketPriceDto);
     }
     concertResponseDto.setTicketPrices(concertTicketPriceDtos); // loop 밖에서 한 번만 설정
+
+    log.info("응답데이터 save파일 네임 = {}", concertResponseDto.getSaveImageName());
+    log.info("응답데이터 imageUrl = {}", concertResponseDto.getImageUrl());
 
     return concertResponseDto;
 

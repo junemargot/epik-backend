@@ -41,14 +41,14 @@ public interface PopupRepository extends JpaRepository<Popup, Long>{
             "WHERE c.id = :categoryId " +
             "AND :currentDate BETWEEN p.startDate AND p.endDate")
     Page<Popup> findByCategoryAndStartDate(@Param("categoryId") Long categoryId,
-                                             @Param("currentDate") LocalDate currentDate,
-                                             Pageable pageable);
+                                            @Param("currentDate") LocalDate currentDate,
+                                            Pageable pageable);
 
     // 이주의 신규 팝업 - 지역별
     @Query("SELECT p FROM Popup p " + "JOIN p.popupRegion c " + "WHERE c.id = :regionId " + "AND p.startDate = :startDate")
     Page<Popup> findByRegionAndStartDate(@Param("regionId") Long regionId,
-                                         @Param("startDate") LocalDate startDate,
-                                         Pageable pageable);
+                                        @Param("startDate") LocalDate startDate,
+                                        Pageable pageable);
 
     //카테고리 선택 후 지역 선택
 //    @Query("SELECT p FROM Popup p " + "JOIN p.popupRegion r " + "WHERE r.id = :regionId " + "AND p.popupCategory.id = :categoryId " + "AND p.startDate = :startDate")
@@ -81,10 +81,10 @@ public interface PopupRepository extends JpaRepository<Popup, Long>{
 
 
     //epik pick 랜덤이미지조회
-    @Query(value = "SELECT m FROM Popup m ORDER BY RAND() LIMIT 10")
+    @Query(value = "SELECT * FROM popup ORDER BY RAND() LIMIT 10", nativeQuery = true)
     List<Popup> getPopupsByRandom();
 
-    @Query(value = "SELECT * FROM Popup WHERE end_date >= :today ORDER BY RAND() LIMIT 10", nativeQuery = true)
+    @Query(value = "SELECT * FROM popup WHERE end_date >= :today ORDER BY RAND() LIMIT 10", nativeQuery = true)
     List<Popup> findActivePopupByRandom(@Param("today") LocalDate today);
 
 }

@@ -1,6 +1,7 @@
 package com.everyplaceinkorea.epik_boot3_api.admin.contents.musical.service;
 
 import com.everyplaceinkorea.epik_boot3_api.admin.contents.musical.dto.*;
+import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.entity.Region;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.*;
@@ -204,7 +205,19 @@ public class DefaultMusicalService implements MusicalService {
 
         MusicalResponseDto responseDto = modelMapper.map(musical, MusicalResponseDto.class);
         responseDto.setWriter(musical.getMember().getNickname());
-        responseDto.setSaveImageName(musical.getFileSavedName());
+//        responseDto.setSaveImageName(musical.getFileSavedName());
+        responseDto.setDataSource(musical.getDataSource());
+
+        // 이미지 처리 로직 개선
+        if (musical.getDataSource() == DataSource.KOPIS_API) {
+            // KOPIS 데이터인 경우
+            responseDto.setImageUrl(musical.getKopisPoster()); // KOPIS 원본 포스터 URL
+            responseDto.setSaveImageName(musical.getFileSavedName()); // 파일명도 설정
+        } else {
+            // 수기 입력 데이터인 경우
+            responseDto.setSaveImageName(musical.getFileSavedName());
+            // imageUrl은 프론트엔드에서 동적으로 생성하거나 getImageUrl() 메소드 사용
+        }
 
         List<MusicalTicketPriceDto> ticketPriceDtos = allByMusicalTicketPrice
                 .stream()
@@ -218,6 +231,7 @@ public class DefaultMusicalService implements MusicalService {
                 .toList();
         responseDto.setTicketOffices(ticketOfficeDtos);
         log.info("응답데이터 save파일 네임 = {}", responseDto.getSaveImageName());
+        log.info("응답데이터 imageUrl = {}", responseDto.getImageUrl());
 
         return responseDto;
     }
