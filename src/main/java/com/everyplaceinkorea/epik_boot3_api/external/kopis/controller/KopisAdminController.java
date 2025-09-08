@@ -1,0 +1,291 @@
+package com.everyplaceinkorea.epik_boot3_api.external.kopis.controller;
+
+import com.everyplaceinkorea.epik_boot3_api.external.kopis.service.KopisDataSyncService;
+import com.everyplaceinkorea.epik_boot3_api.external.kopis.scheduler.KopisSchedulerService;
+import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.SyncResult;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
+
+@Slf4j
+@RestController
+@RequestMapping("/admin/kopis")
+@RequiredArgsConstructor
+public class KopisAdminController {
+    
+    private final KopisDataSyncService syncService;
+    private final KopisSchedulerService schedulerService;
+    
+    /**
+     * 전체 데이터 수동 동기화
+     */
+    @PostMapping("/sync/all")
+    public ResponseEntity<Map<String, Object>> syncAllData() {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            log.info("관리자 요청: 전체 KOPIS 데이터 동기화");
+            
+            LocalDate now = LocalDate.now();
+            String startDate = now.withDayOfMonth(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            String endDate = now.withDayOfMonth(now.lengthOfMonth()).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            
+            // 전체 동기화 실행
+            SyncResult concertResult = syncService.syncAllConcerts(startDate, endDate);
+            SyncResult musicalResult = syncService.syncMusicals(startDate, endDate);
+            
+            // 결과 통합
+            int totalSuccess = concertResult.getSuccessCount() + musicalResult.getSuccessCount();
+            int totalFailure = concertResult.getFailureCount() + musicalResult.getFailureCount();
+            int totalProcessed = concertResult.getTotalProcessed() + musicalResult.getTotalProcessed();
+            
+            response.put("success", true);
+            response.put("message", "KOPIS 데이터 동기화가 완료되었습니다.");
+            response.put("concertResult", concertResult);
+            response.put("musicalResult", musicalResult);
+            response.put("totalSummary", Map.of(
+                "totalProcessed", totalProcessed,
+                "totalSuccess", totalSuccess,
+                "totalFailure", totalFailure
+            ));
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("KOPIS 데이터 동기화 실패: {}", e.getMessage());
+            response.put("success", false);
+            response.put("message", "동기화 중 오류가 발생했습니다: " + e.getMessage());
+            
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+    
+    /**
+     * Concert 생성 테스트
+     */
+    @PostMapping("/test-create")
+    public ResponseEntity<Map<String, Object>> testCreateConcert() {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            log.info("Concert 생성 테스트 요청");
+            
+            syncService.testCreateConcert();
+            
+            response.put("success", true);
+            response.put("message", "테스트 Concert 생성 성공");
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Concert 생성 테스트 실패: {}", e.getMessage(), e);
+            response.put("success", false);
+            response.put("message", "Concert 생성 실패: " + e.getMessage());
+            
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    /**
+     * 데이터베이스 연결 테스트
+     */
+    @GetMapping("/test-db")
+    public ResponseEntity<Map<String, Object>> testDatabase() {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            log.info("데이터베이스 연결 테스트 시작");
+            
+            // 기본 엔티티들 조회 테스트
+            long memberCount = syncService.testDatabaseConnection();
+            
+            response.put("success", true);
+            response.put("message", "데이터베이스 연결 정상");
+            response.put("memberCount", memberCount);
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("데이터베이스 테스트 실패: {}", e.getMessage(), e);
+            response.put("success", false);
+            response.put("message", "데이터베이스 연결 실패: " + e.getMessage());
+            
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    /**
+     * KOPIS API 테스트 (실제 API 호출만)
+     */
+    @GetMapping("/test-api")
+    public ResponseEntity<Map<String, Object>> testKopisApi() {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            log.info("KOPIS API 테스트 시작");
+            
+            LocalDate now = LocalDate.now();
+            String startDate = now.withDayOfMonth(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            String endDate = now.withDayOfMonth(now.lengthOfMonth()).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            
+            // KOPIS API만 호출해서 데이터 받아오기 테스트
+            String xmlResponse = syncService.testKopisApiCall(startDate, endDate);
+            
+            response.put("success", true);
+            response.put("message", "KOPIS API 호출 성공");
+            response.put("dataLength", xmlResponse != null ? xmlResponse.length() : 0);
+            response.put("hasData", xmlResponse != null && !xmlResponse.trim().isEmpty());
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("KOPIS API 테스트 실패: {}", e.getMessage(), e);
+            response.put("success", false);
+            response.put("message", "KOPIS API 호출 실패: " + e.getMessage());
+            
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    /**
+     * 테스트용 엔드포인트
+     */
+    @GetMapping("/test")
+    public ResponseEntity<Map<String, Object>> test() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "KOPIS 컨트롤러가 정상 작동합니다.");
+        response.put("timestamp", java.time.LocalDateTime.now());
+        return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * 콘서트 데이터만 동기화
+     */
+    @PostMapping("/sync/concerts")
+    public ResponseEntity<SyncResult> syncConcerts() {
+        try {
+            log.info("관리자 요청: 콘서트 KOPIS 데이터 동기화");
+            
+            LocalDate now = LocalDate.now();
+            String startDate = now.withDayOfMonth(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            String endDate = now.withDayOfMonth(now.lengthOfMonth()).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            
+            SyncResult result = syncService.syncAllConcerts(startDate, endDate);
+            
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("콘서트 데이터 동기화 실패: {}", e.getMessage());
+            SyncResult errorResult = new SyncResult("CONCERT");
+            errorResult.addFailure("콘서트 동기화 실패: " + e.getMessage());
+            errorResult.complete();
+            
+            return ResponseEntity.internalServerError().body(errorResult);
+        }
+    }
+    
+    /**
+     * 뮤지컬 데이터만 동기화
+     */
+    @PostMapping("/sync/musicals")
+    public ResponseEntity<SyncResult> syncMusicals() {
+        try {
+            log.info("관리자 요청: 뮤지컬 KOPIS 데이터 동기화");
+            
+            LocalDate now = LocalDate.now();
+            String startDate = now.withDayOfMonth(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            String endDate = now.withDayOfMonth(now.lengthOfMonth()).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+            
+            SyncResult result = syncService.syncMusicals(startDate, endDate);
+            
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("뮤지컬 데이터 동기화 실패: {}", e.getMessage());
+            SyncResult errorResult = new SyncResult("MUSICAL");
+            errorResult.addFailure("뮤지컬 동기화 실패: " + e.getMessage());
+            errorResult.complete();
+            
+            return ResponseEntity.internalServerError().body(errorResult);
+        }
+    }
+    
+    /**
+     * 개별 공연 동기화
+     */
+    @PostMapping("/sync/performance/{kopisId}")
+    public ResponseEntity<Map<String, Object>> syncSinglePerformance(@PathVariable String kopisId) {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            log.info("관리자 요청: 개별 공연 동기화 - {}", kopisId);
+            
+            syncService.syncSinglePerformance(kopisId);
+            
+            response.put("success", true);
+            response.put("message", "공연 ID " + kopisId + " 동기화가 완료되었습니다.");
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("개별 공연 동기화 실패: {}", e.getMessage());
+            response.put("success", false);
+            response.put("message", "동기화 중 오류가 발생했습니다: " + e.getMessage());
+            
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+    
+    /**
+     * 동기화 상태 확인
+     */
+    @GetMapping("/sync/status")
+    public ResponseEntity<Map<String, Object>> getSyncStatus() {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            // 실제로는 데이터베이스에서 마지막 동기화 시간 등을 조회해야 함
+            // 여기서는 기본 응답만 제공
+            response.put("success", true);
+            response.put("lastSyncTime", "2024-01-01 02:00:00"); // 실제 마지막 동기화 시간
+            response.put("totalSyncedItems", 0); // 실제 동기화된 아이템 수
+            response.put("status", "READY"); // RUNNING, COMPLETED, ERROR, READY
+            response.put("message", "동기화 시스템이 정상적으로 동작 중입니다.");
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "상태 조회 중 오류가 발생했습니다: " + e.getMessage());
+            
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+    
+    /**
+     * 수동 스케줄 실행 (테스트용)
+     */
+    @PostMapping("/schedule/trigger")
+    public ResponseEntity<Map<String, Object>> triggerSchedule() {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            log.info("관리자 요청: 수동 스케줄 실행");
+            
+            // 비동기로 실행 (실제 운영에서는 @Async 사용 권장)
+            new Thread(() -> {
+                schedulerService.manualSync();
+            }).start();
+            
+            response.put("success", true);
+            response.put("message", "스케줄된 동기화가 백그라운드에서 시작되었습니다.");
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("수동 스케줄 실행 실패: {}", e.getMessage());
+            response.put("success", false);
+            response.put("message", "스케줄 실행 중 오류가 발생했습니다: " + e.getMessage());
+            
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+}
