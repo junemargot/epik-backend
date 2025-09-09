@@ -22,6 +22,9 @@ public interface SignupService {
 
     SignupRequestDto signup(SignupRequestDto signupRequestDto);
 
+    // 이메일 인증 코드 확인
+    Map<String, String> verifyEmailCode(String email, String code);
+
 
 
 
