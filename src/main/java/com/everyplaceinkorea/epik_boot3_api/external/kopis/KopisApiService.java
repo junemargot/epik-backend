@@ -32,7 +32,9 @@ public class KopisApiService {
      */
     public String getPerformanceList(String stDate, String edDate, int cPage, int rows) {
         try {
-            return webClient.get()
+            log.info("KOPIS API 호출 시작 - stDate: {}, edDate: {}, cPage: {}, rows: {}", stDate, edDate, cPage, rows);
+
+            String response = webClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/pblprfr")
                             .queryParam("service", kopisApiConfig.getApi().getKey())
@@ -45,6 +47,9 @@ public class KopisApiService {
                     .bodyToMono(String.class)
                     .timeout(Duration.ofMillis(kopisApiConfig.getApi().getTimeout()))
                     .block();
+
+            log.info("KOPIS API 응답 길이: {}", response != null ? response.length() : 0);
+            return response;
         } catch(Exception e) {
             log.error("KOPIS API 호출 실패: {}", e.getMessage());
             throw new RuntimeException("KOPIS API 호출 실패:", e);

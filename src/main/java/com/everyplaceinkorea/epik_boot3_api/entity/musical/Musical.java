@@ -38,6 +38,9 @@ public class Musical {
     @Column(name = "file_saved_name")
     private String fileSavedName;
 
+    @Column(name = "file_path")
+    private String filePath;
+
     @Column(name = "running_time")
     private String runningTime;
 
@@ -157,6 +160,7 @@ public class Musical {
         
         // KOPIS 포스터를 기존 이미지 시스템에 연결
         if (dto.getPoster() != null && !dto.getPoster().trim().isEmpty()) {
+            musical.setFilePath(dto.getPoster());
             musical.setFileSavedName(extractFileNameFromUrl(dto.getPoster()));
         }
         
@@ -195,9 +199,10 @@ public class Musical {
         // 동기화 시간 갱신
         this.lastSynced = LocalDateTime.now();
         
-        // KOPIS 포스터를 기존 이미지 시스템에 연결
+        // KOPIS 포스터를 기존 이미지 시스템에 연결 (Concert와 동일한 방식)
         if (dto.getPoster() != null && !dto.getPoster().trim().isEmpty()) {
-            this.fileSavedName = extractFileNameFromUrl(dto.getPoster());
+            this.filePath = dto.getPoster(); // KOPIS 포스터 URL을 file_path에 저장
+            this.fileSavedName = extractFileNameFromUrl(dto.getPoster()); // URL에서 파일명 추출
         }
         
         // 추가 필드 업데이트

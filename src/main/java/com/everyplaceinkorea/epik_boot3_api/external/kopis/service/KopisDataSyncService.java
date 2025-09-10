@@ -46,7 +46,7 @@ public class KopisDataSyncService {
         SyncResult result = new SyncResult("CONCERT");
 
         try {
-            String xmlResponse = kopisApiService.getPerformanceList(startDate, endDate, 1, 100); // 1000 → 100으로 줄임
+            String xmlResponse = kopisApiService.getPerformanceList(startDate, endDate, 1, 500); // 100 → 500으로 증가
             
             if (xmlResponse != null) {
                 List<KopisPerformanceDto> performances = parseXmlToPerformanceList(xmlResponse);
@@ -98,7 +98,7 @@ public class KopisDataSyncService {
         SyncResult result = new SyncResult("MUSICAL");
 
         try {
-            String xmlResponse = kopisApiService.getPerformanceList(startDate, endDate, 1, 100); // 1000 → 100으로 줄임
+            String xmlResponse = kopisApiService.getPerformanceList(startDate, endDate, 1, 500); // 100 → 500으로 증가
             
             if (xmlResponse != null) {
                 List<KopisPerformanceDto> performances = parseXmlToPerformanceList(xmlResponse);
@@ -310,7 +310,23 @@ public class KopisDataSyncService {
 
     private boolean isMusicalGenre(String genrenm) {
         if (genrenm == null) return false;
-        return genrenm.toLowerCase().contains("뮤지컬");
+        String lowerGenre = genrenm.toLowerCase();
+        
+        // 뮤지컬 관련 다양한 표현 포함
+        String[] musicalGenres = {
+            "뮤지컬", "musical", "창작뮤지컬", "오리지널뮤지컬", 
+            "라이선스뮤지컬", "뮤지컬갈라", "어린이뮤지컬", "가족뮤지컬"
+        };
+        
+        for (String genre : musicalGenres) {
+            if (lowerGenre.contains(genre.toLowerCase())) {
+                log.debug("뮤지컬 장르 매칭: {} -> {}", genrenm, genre);
+                return true;
+            }
+        }
+        
+        log.debug("뮤지컬 장르 아님: {}", genrenm);
+        return false;
     }
 
     /**

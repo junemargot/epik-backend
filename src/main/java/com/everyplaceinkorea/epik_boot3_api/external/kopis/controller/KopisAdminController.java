@@ -172,9 +172,10 @@ public class KopisAdminController {
             LocalDate now = LocalDate.now();
             String startDate = now.withDayOfMonth(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
             String endDate = now.withDayOfMonth(now.lengthOfMonth()).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-            
+            log.info("콘서트 동기화 날짜 범위: {} ~ {}", startDate, endDate);
+
             SyncResult result = syncService.syncAllConcerts(startDate, endDate);
-            
+            log.info("콘서트 동기화 완료 - 응답 데이터: {}", result);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("콘서트 데이터 동기화 실패: {}", e.getMessage());
@@ -197,9 +198,10 @@ public class KopisAdminController {
             LocalDate now = LocalDate.now();
             String startDate = now.withDayOfMonth(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
             String endDate = now.withDayOfMonth(now.lengthOfMonth()).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-            
+            log.info("뮤지컬 동기화 날짜 범위: {} ~ {}", startDate, endDate);
+
             SyncResult result = syncService.syncMusicals(startDate, endDate);
-            
+            log.info("뮤지컬 동기화 완료 - 응답 데이터: {}", result);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("뮤지컬 데이터 동기화 실패: {}", e.getMessage());
