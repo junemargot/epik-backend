@@ -224,7 +224,7 @@ public class KopisDataSyncService {
     /**
      * XML 문자열을 KopisPerformanceDto 리스트로 파싱
      */
-    private List<KopisPerformanceDto> parseXmlToPerformanceList(String xmlResponse) {
+    public List<KopisPerformanceDto> parseXmlToPerformanceList(String xmlResponse) {
         List<KopisPerformanceDto> performances = new ArrayList<>();
         
         try {
@@ -440,5 +440,12 @@ public class KopisDataSyncService {
     private Region getDefaultRegion() {
         return regionRepository.findById(1L)
                 .orElseThrow(() -> new IllegalStateException("기본 지역을 찾을 수 없습니다"));
+    }
+
+    /**
+     * 테스트용 KOPIS API 호출(페이지 지정 가능)
+     */
+    public String testKopisApiCall(String startDate, String endDate, int page, int rows) {
+        return kopisApiService.getPerformanceList(startDate, endDate, page, rows);
     }
 }

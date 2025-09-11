@@ -74,4 +74,13 @@ public interface MusicalRepository extends JpaRepository<Musical, Long> {
     List<Musical> findByDataSource(DataSource dataSource);
     List<Musical> findByDataSourceAndLastSyncedAfter(DataSource dataSource, LocalDateTime dateTime);
 
+    @Query("SELECT m FROM Musical m WHERE m.startDate >= :startDate AND m.endDate <= :endDate")
+    List<Musical> findByDateRange(@Param("startDate") String startDate, @Param("endDate") String endDate);
+
+    // 날짜 범위 조회 메서드 추가
+    @Query("SELECT m FROM Musical m WHERE m.startDate >= :startDate AND m.startDate <= :endDate")
+    List<Musical> findByStartDateBetween(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    @Query("SELECT COUNT(m) FROM Musical m WHERE m.startDate >= :startDate AND m.startDate <= :endDate")
+    long countByStartDateBetween(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }
