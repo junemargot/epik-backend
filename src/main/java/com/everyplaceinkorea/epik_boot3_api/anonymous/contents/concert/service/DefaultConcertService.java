@@ -1,6 +1,7 @@
 package com.everyplaceinkorea.epik_boot3_api.anonymous.contents.concert.service;
 
 import com.everyplaceinkorea.epik_boot3_api.anonymous.contents.concert.dto.ConcertResponseDto;
+import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.concert.Concert;
 import com.everyplaceinkorea.epik_boot3_api.repository.concert.ConcertRepository;
 import lombok.RequiredArgsConstructor;
@@ -50,7 +51,22 @@ public class DefaultConcertService implements ConcertService {
       List<Concert> concerts = concertRepository.findActiveConcertByRandom(today);
 
       return concerts.stream()
-              .map(concert -> modelMapper.map(concert, ConcertResponseDto.class))
+              .map(concert -> {
+                ConcertResponseDto dto = modelMapper.map(concert, ConcertResponseDto.class);
+
+                // 데이터 소스 설정
+                dto.setDataSource(concert.getDataSource());
+                
+                // 이미지 처리 로직 개선
+                if(concert.getDataSource() == DataSource.KOPIS_API) {
+                  dto.setImageUrl(concert.getKopisPoster()); // KOPIS 원본 포스터 URL
+                  dto.setFileSavedName(concert.getFileSavedName()); // 파일명 설정
+                } else {
+                  dto.setFileSavedName(concert.getFileSavedName());
+                }
+
+                return dto;
+              })
               .toList();
     }
 

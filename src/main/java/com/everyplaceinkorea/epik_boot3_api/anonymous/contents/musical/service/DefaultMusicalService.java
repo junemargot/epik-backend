@@ -1,6 +1,7 @@
 package com.everyplaceinkorea.epik_boot3_api.anonymous.contents.musical.service;
 
 import com.everyplaceinkorea.epik_boot3_api.anonymous.contents.musical.dto.MusicalResponseDto;
+import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.Musical;
 import com.everyplaceinkorea.epik_boot3_api.repository.musical.MusicalRepository;
 import lombok.RequiredArgsConstructor;
@@ -49,7 +50,22 @@ public class DefaultMusicalService implements MusicalService{
       List<Musical> musicals = musicalRepository.findActiveMusicalByRandom(today);
 
       return musicals.stream()
-              .map(musical -> modelMapper.map(musical, MusicalResponseDto.class))
+              .map(musical -> {
+                MusicalResponseDto dto = modelMapper.map(musical, MusicalResponseDto.class);
+
+                // 데이터 소스 설정
+                dto.setDataSource(musical.getDataSource());
+                
+                // 이미지 처리 로직 개선
+                if(musical.getDataSource() == DataSource.KOPIS_API) {
+                  dto.setImageUrl(musical.getKopisPoster()); // KOPIS 원본 포스터 URL
+                  dto.setFileSavedName(musical.getFileSavedName()); // 파일명 설정
+                } else {
+                  dto.setFileSavedName(musical.getFileSavedName());
+                }
+
+                return dto;
+              })
               .toList();
     }
 }
