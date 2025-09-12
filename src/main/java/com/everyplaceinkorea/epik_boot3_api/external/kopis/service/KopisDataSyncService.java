@@ -147,21 +147,36 @@ public class KopisDataSyncService {
      */
     private void syncSingleConcert(KopisPerformanceDto dto, Member systemMember, 
                                    Region defaultRegion, SyncResult result) {
-        
+
+        // 1. 기본 정보로 엔티티 생성/업데이트
         Optional<Concert> existingConcert = concertRepository.findByKopisId(dto.getMt20id());
-        
+        Concert concert;
+        boolean isNewConcert = false;
+
         if (existingConcert.isPresent()) {
-            Concert concert = existingConcert.get();
-            concert.updateFromKopisData(dto);
-            concertRepository.save(concert);
-            result.addSuccess(false); // 업데이트
-            log.debug("콘서트 업데이트: {}", dto.getPrfnm());
+            concert = existingConcert.get();
         } else {
-            Concert newConcert = Concert.fromKopisData(dto, defaultRegion, systemMember);
-            concertRepository.save(newConcert);
-            result.addSuccess(true); // 신규 생성
-            log.debug("새 콘서트 생성: {}", dto.getPrfnm());
+            concert = Concert.fromKopisData(dto, defaultRegion, systemMember);
+            isNewConcert = true;
         }
+
+        // 2. 상세 정보 추가 조회 및 업데이트
+        try {
+            String detailXml = kopisApiService.getPerformanceDetail(dto.getMt20id());
+            if(detailXml != null) {
+                List<KopisPerformanceDto> detailList = parseXmlToPerformanceList(detailXml);
+                if(!detailList.isEmpty()) {
+                    KopisPerformanceDto detailDto = detailList.get(0);
+                    // 상세 정보로 엔티티 업데이트
+                    concert.updateFromKopisData(detailDto);
+                }
+            }
+        } catch(Exception e) {
+            log.warn("상세 정보 조회 실패: {} - {}", dto.getMt20id(), e.getMessage());
+        }
+
+        concertRepository.save(concert);
+        result.addSuccess(isNewConcert);
     }
 
     /**
@@ -265,7 +280,13 @@ public class KopisDataSyncService {
             dto.setGenrenm(extractXmlValue(xmlContent, "genrenm"));
             dto.setOpenrun(extractXmlValue(xmlContent, "openrun"));
             dto.setPrfstate(extractXmlValue(xmlContent, "prfstate"));
-            
+
+            dto.setPrftime(extractXmlValue(xmlContent, "prftime"));
+            dto.setPcseguidance(extractXmlValue(xmlContent, "pcseguidance"));
+            dto.setDtguidance(extractXmlValue(xmlContent, "dtguidance"));
+            dto.setStyurls(extractXmlValue(xmlContent, "styurls"));
+            dto.setPrfage(extractXmlValue(xmlContent, "prfage"));
+
             return dto;
         } catch (Exception e) {
             log.warn("개별 공연 파싱 실패: {}", e.getMessage());
@@ -297,32 +318,35 @@ public class KopisDataSyncService {
      */
     private boolean isConcertGenre(String genrenm) {
         if (genrenm == null) return false;
-        String lowerGenre = genrenm.toLowerCase();
-        String[] concertGenres = {"클래식", "오페라", "국악", "무용", "콘서트"};
-        
-        for (String genre : concertGenres) {
-            if (lowerGenre.contains(genre.toLowerCase())) {
+        log.info("콘서트 장르 확인: {} ===", genrenm);
+
+        // 장르 코드로 서치
+//        String lowerGenre = genrenm.toLowerCase();
+//        String[] concertGenres = {"클래식", "오페라", "국악", "무용", "콘서트"};
+        String[] concertCodes = {"CCCA", "CCCC", "CCCD", "BBBC", "BBBE", "EEEA", "EEEB"};
+        // CCCA: 서양음악(클래식), CCCC: 한국음악(국악), CCCD: 대중음악
+        // BBBC: 무용(서양/한국무용), BBBE: 대중무용
+        // EEEA: 복합, EEEB: 서커스/마술
+
+        for (String code : concertCodes) {
+            if(code.equals(genrenm)) {
+                log.info("콘서트 장르 매칭: {} -> {}", genrenm, code);
                 return true;
             }
         }
+
+        log.debug("콘서트 장르 아님: {}", genrenm);
         return false;
     }
 
     private boolean isMusicalGenre(String genrenm) {
         if (genrenm == null) return false;
-        String lowerGenre = genrenm.toLowerCase();
-        
-        // 뮤지컬 관련 다양한 표현 포함
-        String[] musicalGenres = {
-            "뮤지컬", "musical", "창작뮤지컬", "오리지널뮤지컬", 
-            "라이선스뮤지컬", "뮤지컬갈라", "어린이뮤지컬", "가족뮤지컬"
-        };
-        
-        for (String genre : musicalGenres) {
-            if (lowerGenre.contains(genre.toLowerCase())) {
-                log.debug("뮤지컬 장르 매칭: {} -> {}", genrenm, genre);
-                return true;
-            }
+        log.info("=== 뮤지컬 장르 확인: {} ===", genrenm);
+
+        // 뮤지컬 장르 코드 GGGA
+        if("GGGA".equals(genrenm)) {
+            log.info("뮤지컬 장르 매칭: {} -> GGGA", genrenm);
+            return true;
         }
         
         log.debug("뮤지컬 장르 아님: {}", genrenm);
