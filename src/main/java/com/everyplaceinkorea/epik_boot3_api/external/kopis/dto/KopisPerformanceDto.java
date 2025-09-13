@@ -17,15 +17,16 @@ public class KopisPerformanceDto {
   private String openrun;     // 오픈런
   private String prfstate;    // 공연상태
 
-  private String prftime;     // 공연시간
-  private String pcseguidance; // 티켓가격
+  private String prftime;        // 공연시간
+  private String pcseguidance;   // 티켓가격
   private String dtguidance;     // 공연시간 상세
-  private String styurls;     // 소개이미지목록
-  private String prfage;      // 관람연령
-
-//  private String entrpsnm;    // 제작진/출연진 -> 필요없지 않나?
-//  private String entrpsnmH;   // 기획/제작사
-//  private String entrpsnmP;   // 주최/주관
-//  private String entrpsnmA;   // 후원/협력
-//  private String entrpsnmS;   // 예매처
+  private String styurls;        // 소개이미지목록
+  private String entrpsnmP;      // 제작사
+  private String entrpsnmA;      // 기획사
+  private String entrpsnmH;      // 주최
+  private String entrpsnmS;      // 주관(예매처)
+  private String prfcast;        // 출연진
+  private String prfcrew;        // 제작진
+  private String prfruntime;     // 런타임
+  private String prfage;         // 관람연령
 }

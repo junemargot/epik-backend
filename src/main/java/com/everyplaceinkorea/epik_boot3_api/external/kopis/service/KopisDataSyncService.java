@@ -21,6 +21,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -38,48 +39,61 @@ public class KopisDataSyncService {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
+    // KOPIS 장르 코드 매핑
+    private static final Map<String, String> GENRE_CODE_MAP = Map.of(
+            "CCCA", "서양음악(클래식)",
+            "CCCD", "대중음악",
+            "BBBC", "무용(서양/한국무용)",
+            "BBBE", "대중무용",
+            "EEEA", "복합",
+            "GGGA", "뮤지컬"
+    );
+
+    // 콘서트 관련 장르 코드들
+    private static final String[] CONCERT_GENRE_CODES = {"CCCA", "CCCD", "BBBC", "BBBE", "EEEA"};
+    private static final String MUSICAL_GENRE_CODE = "GGGA";
+
     /**
-     * 전체 Concert 동기화
+     * 전체 Concert 동기화: 장르별 개별 조회
      */
     public SyncResult syncAllConcerts(String startDate, String endDate) {
         log.info("Concert 동기화 시작: {} ~ {}", startDate, endDate);
         SyncResult result = new SyncResult("CONCERT");
 
         try {
-            String xmlResponse = kopisApiService.getPerformanceList(startDate, endDate, 1, 500); // 100 → 500으로 증가
-            
-            if (xmlResponse != null) {
-                List<KopisPerformanceDto> performances = parseXmlToPerformanceList(xmlResponse);
-                log.info("KOPIS API로부터 {}개의 공연 데이터 수신", performances.size());
+            String[] concertGenres = {"CCCA", "CCCD", "BBBC", "BBBE", "EEEA"};
 
-                Member systemMember = getSystemMember();
-                Region defaultRegion = getDefaultRegion();
+            Member systemMember = getSystemMember();
+            Region defaultRegion = getDefaultRegion();
 
-                for (KopisPerformanceDto performance : performances) {
-                    try {
-                        if (isConcertGenre(performance.getGenrenm())) {
-                            log.debug("콘서트 동기화 중: {} ({})", performance.getPrfnm(), performance.getMt20id());
-                            syncSingleConcert(performance, systemMember, defaultRegion, result);
-                        } else {
-                            result.addSkipped("콘서트 장르가 아님: " + performance.getGenrenm());
+            // 장르별 조회
+            for (String genreCode : CONCERT_GENRE_CODES) {
+                log.info("=== 장르 코드 {} 조회 시작 ===", genreCode);
+
+                try {
+                    String xmlResponse = kopisApiService.getPerformanceListByGenre(startDate, endDate, 1, 100, genreCode);
+
+                    if(xmlResponse != null) {
+                        List<KopisPerformanceDto> performances = parseXmlToPerformanceList(xmlResponse);
+                        log.info("장르 {}에서 {}개의 공연 데이터 수신", genreCode, performances.size());
+
+                        for(KopisPerformanceDto performance : performances) {
+                            try {
+                                syncSingleConcert(performance, systemMember, defaultRegion, result);
+                            } catch(Exception e) {
+                                result.addFailure(String.format("공연 ID %s 동기화 실패: %s",
+                                        performance.getMt20id(), e.getMessage()));
+                            }
                         }
-                    } catch (Exception e) {
-                        result.addFailure(String.format("공연 ID %s 동기화 실패: %s", 
-                                performance.getMt20id(), e.getMessage()));
-                        log.error("개별 공연 동기화 실패: {}", performance.getMt20id(), e);
                     }
-                    
-                    // 진행률 로깅 (10개마다)
-                    if ((result.getTotalProcessed() + 1) % 10 == 0) {
-                        log.info("콘서트 동기화 진행률: {}/{}", result.getTotalProcessed() + 1, performances.size());
-                    }
+                } catch (Exception e) {
+                    log.error("장르 {} 조회 실패: {}", genreCode, e.getMessage());
+                    result.addFailure("장르 " + genreCode + " 조회 실패: " + e.getMessage());
                 }
-            } else {
-                result.addFailure("KOPIS API 응답이 null입니다.");
             }
 
             result.complete();
-            log.info("Concert 동기화 완료: {}", result.getSummary());
+            log.info("Concert 동기화 완료: 총 {}건 처리", result.getTotalProcessed());
             return result;
 
         } catch (Exception e) {
@@ -98,40 +112,45 @@ public class KopisDataSyncService {
         SyncResult result = new SyncResult("MUSICAL");
 
         try {
-            String xmlResponse = kopisApiService.getPerformanceList(startDate, endDate, 1, 500); // 100 → 500으로 증가
-            
-            if (xmlResponse != null) {
-                List<KopisPerformanceDto> performances = parseXmlToPerformanceList(xmlResponse);
-                log.info("KOPIS API로부터 {}개의 공연 데이터 수신", performances.size());
+            Member systemMember = getSystemMember();
+            Region defaultRegion = getDefaultRegion();
 
-                Member systemMember = getSystemMember();
-                Region defaultRegion = getDefaultRegion();
+            // 페이지별로 모든 뮤지컬 데이터 가져오기
+            int page = 1;
+            boolean hasMoreData = true;
 
-                for (KopisPerformanceDto performance : performances) {
-                    try {
-                        if (isMusicalGenre(performance.getGenrenm())) {
-                            log.debug("뮤지컬 동기화 중: {} ({})", performance.getPrfnm(), performance.getMt20id());
-                            syncSingleMusical(performance, systemMember, defaultRegion, result);
-                        } else {
-                            result.addSkipped("뮤지컬 장르가 아님: " + performance.getGenrenm());
+            while(hasMoreData) {
+                String xmlResponse = kopisApiService.getPerformanceListByGenre(startDate, endDate, page, 100, MUSICAL_GENRE_CODE);
+
+                if (xmlResponse != null) {
+                    List<KopisPerformanceDto> performances = parseXmlToPerformanceList(xmlResponse);
+                    log.info("뮤지컬에서 {}개의 공연 데이터 수신", performances.size());
+
+                    if(performances.isEmpty()) {
+                        hasMoreData = false;
+                    } else {
+                        for (KopisPerformanceDto performance : performances) {
+                            try {
+                                syncSingleMusical(performance, systemMember, defaultRegion, result);
+                            } catch (Exception e) {
+                                result.addFailure(String.format("공연 ID %s 동기화 실패: %s",
+                                        performance.getMt20id(), e.getMessage()));
+                            }
                         }
-                    } catch (Exception e) {
-                        result.addFailure(String.format("공연 ID %s 동기화 실패: %s", 
-                                performance.getMt20id(), e.getMessage()));
-                        log.error("개별 뮤지컬 동기화 실패: {}", performance.getMt20id(), e);
+                        page++;
+
+                        if(page > 50) {
+                            log.warn("뮤지컬 최대 페이지 수 도달");
+                            hasMoreData = false;
+                        }
                     }
-                    
-                    // 진행률 로깅 (10개마다)
-                    if ((result.getTotalProcessed() + 1) % 10 == 0) {
-                        log.info("뮤지컬 동기화 진행률: {}/{}", result.getTotalProcessed() + 1, performances.size());
-                    }
+                } else {
+                    hasMoreData = false;
                 }
-            } else {
-                result.addFailure("KOPIS API 응답이 null입니다.");
             }
 
             result.complete();
-            log.info("Musical 동기화 완료: {}", result.getSummary());
+            log.info("Musical 동기화 완료: 총 {}건 처리", result.getTotalProcessed());
             return result;
 
         } catch (Exception e) {
@@ -241,12 +260,12 @@ public class KopisDataSyncService {
      */
     public List<KopisPerformanceDto> parseXmlToPerformanceList(String xmlResponse) {
         List<KopisPerformanceDto> performances = new ArrayList<>();
-        
+
         try {
             // 간단한 정규식을 사용한 XML 파싱
             Pattern dbPattern = Pattern.compile("<db>(.*?)</db>", Pattern.DOTALL);
             Matcher dbMatcher = dbPattern.matcher(xmlResponse);
-            
+
             while (dbMatcher.find()) {
                 String dbContent = dbMatcher.group(1);
                 KopisPerformanceDto dto = parsePerformanceFromXml(dbContent);
@@ -254,12 +273,12 @@ public class KopisDataSyncService {
                     performances.add(dto);
                 }
             }
-            
+
         } catch (Exception e) {
             log.error("XML 파싱 실패: {}", e.getMessage());
             throw new RuntimeException("KOPIS API 응답 파싱 실패", e);
         }
-        
+
         return performances;
     }
 
@@ -269,7 +288,7 @@ public class KopisDataSyncService {
     private KopisPerformanceDto parsePerformanceFromXml(String xmlContent) {
         try {
             KopisPerformanceDto dto = new KopisPerformanceDto();
-            
+
             dto.setMt20id(extractXmlValue(xmlContent, "mt20id"));
             dto.setPrfnm(extractXmlValue(xmlContent, "prfnm"));
             dto.setPrfpdfrom(extractXmlValue(xmlContent, "prfpdfrom"));
@@ -285,7 +304,15 @@ public class KopisDataSyncService {
             dto.setPcseguidance(extractXmlValue(xmlContent, "pcseguidance"));
             dto.setDtguidance(extractXmlValue(xmlContent, "dtguidance"));
             dto.setStyurls(extractXmlValue(xmlContent, "styurls"));
+            dto.setEntrpsnmP(extractXmlValue(xmlContent, "entrpsnmP"));
+            dto.setEntrpsnmA(extractXmlValue(xmlContent, "entrpsnmA"));
+            dto.setEntrpsnmH(extractXmlValue(xmlContent, "entrpsnmH"));
+            dto.setEntrpsnmS(extractXmlValue(xmlContent, "entrpsnmS"));
+            dto.setPrfcast(extractXmlValue(xmlContent, "prfcast"));
+            dto.setPrfcrew(extractXmlValue(xmlContent, "prfcrew"));
+            dto.setPrfruntime(extractXmlValue(xmlContent, "prfruntime"));
             dto.setPrfage(extractXmlValue(xmlContent, "prfage"));
+
 
             return dto;
         } catch (Exception e) {
@@ -341,7 +368,7 @@ public class KopisDataSyncService {
 
     private boolean isMusicalGenre(String genrenm) {
         if (genrenm == null) return false;
-        log.info("=== 뮤지컬 장르 확인: {} ===", genrenm);
+        log.info("=== 뮤지컬 장르 확인: [{}] ===", genrenm);
 
         // 뮤지컬 장르 코드 GGGA
         if("GGGA".equals(genrenm)) {
@@ -471,5 +498,9 @@ public class KopisDataSyncService {
      */
     public String testKopisApiCall(String startDate, String endDate, int page, int rows) {
         return kopisApiService.getPerformanceList(startDate, endDate, page, rows);
+    }
+
+    public String testKopisApiCallByGenre(String startDate, String endDate, int page, int rows, String genreCode) {
+        return kopisApiService.getPerformanceListByGenre(startDate, endDate, page, rows, genreCode);
     }
 }

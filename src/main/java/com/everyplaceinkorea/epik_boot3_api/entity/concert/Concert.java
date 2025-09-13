@@ -274,11 +274,6 @@ public class Concert {
       this.detailImages = dto.getStyurls();
     }
 
-    // 출연진/제작진 정보 업데이트
-    if (dto.getEntrpsnm() != null && !dto.getEntrpsnm().trim().isEmpty()) {
-      this.castStaff = dto.getEntrpsnm();
-    }
-
     // 관람연령 업데이트
     if (dto.getPrfage() != null && !dto.getPrfage().trim().isEmpty()) {
       this.ageLimit = dto.getPrfage();

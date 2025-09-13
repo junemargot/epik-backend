@@ -158,6 +158,32 @@ public class KopisAdminController {
         }
     }
 
+    @GetMapping("/test-genre/{genreCode}")
+    public ResponseEntity<Map<String, Object>> testGenreApi(@PathVariable String genreCode) {
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            log.info("장르별 API 테스트 시작: {}", genreCode);
+
+            // 고정된 과거 날짜로 테스트
+            String xmlResponse = syncService.testKopisApiCallByGenre("20240801", "20240831", 1, 10, genreCode);
+
+            response.put("success", true);
+            response.put("genreCode", genreCode);
+            response.put("responseLength", xmlResponse != null ? xmlResponse.length() : 0);
+            response.put("responsePreview", xmlResponse != null && xmlResponse.length() > 200 ?
+                    xmlResponse.substring(0, 200) : xmlResponse);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("장르별 API 테스트 실패: {}", e.getMessage());
+            response.put("success", false);
+            response.put("message", "장르별 API 테스트 실패: " + e.getMessage());
+
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
     /**
      * 테스트용 엔드포인트
      */
