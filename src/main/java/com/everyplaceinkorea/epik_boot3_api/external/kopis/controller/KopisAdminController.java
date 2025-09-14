@@ -545,4 +545,46 @@ public class KopisAdminController {
             return ResponseEntity.internalServerError().body(response);
         }
     }
+
+    @PostMapping("/test-sync/single/{kopisId}")
+    public ResponseEntity<Map<String, Object>> testSyncSingle(@PathVariable String kopisId) {
+        Map<String, Object> response= new HashMap<>();
+
+        try {
+            log.info("개별 공연 동기화 테스트: {}", kopisId);
+
+            syncService.syncSinglePerformance(kopisId);
+
+            response.put("success", true);
+            response.put("message", "개별 공연 동기화 성공: " + kopisId);
+
+            return ResponseEntity.ok(response);
+        } catch(Exception e) {
+            log.error("개별 공연 동기화 테스트 실패: {}", e.getMessage());
+            response.put("success", false);
+            response.put("message", "동기화 실패: " + e.getMessage());
+
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @PostMapping("/test-sync/limited")
+    public ResponseEntity<Map<String, Object>> testSyncLimited() {
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            // 테스트용: 뮤지컬 1페이지(100건)만 처리
+            String xmlResponse = syncService.testKopisApiCallByGenre("20250901", "20250930", 1, 5, "GGGA"); // 5건만
+
+            response.put("success", true);
+            response.put("message", "제한된 동기화 테스트 완료");
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "테스트 실패: " + e.getMessage());
+
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
 }

@@ -166,36 +166,51 @@ public class KopisDataSyncService {
      */
     private void syncSingleConcert(KopisPerformanceDto dto, Member systemMember, 
                                    Region defaultRegion, SyncResult result) {
-
-        // 1. 기본 정보로 엔티티 생성/업데이트
-        Optional<Concert> existingConcert = concertRepository.findByKopisId(dto.getMt20id());
-        Concert concert;
-        boolean isNewConcert = false;
-
-        if (existingConcert.isPresent()) {
-            concert = existingConcert.get();
-        } else {
-            concert = Concert.fromKopisData(dto, defaultRegion, systemMember);
-            isNewConcert = true;
-        }
-
-        // 2. 상세 정보 추가 조회 및 업데이트
         try {
+            // 1. 상세 정보 추가 조회
             String detailXml = kopisApiService.getPerformanceDetail(dto.getMt20id());
-            if(detailXml != null) {
+            if (detailXml != null) {
                 List<KopisPerformanceDto> detailList = parseXmlToPerformanceList(detailXml);
-                if(!detailList.isEmpty()) {
+                if (!detailList.isEmpty()) {
                     KopisPerformanceDto detailDto = detailList.get(0);
-                    // 상세 정보로 엔티티 업데이트
-                    concert.updateFromKopisData(detailDto);
+                    // 상세 정보를 기본 정보에 병합
+                    mergeDetailInfo(dto, detailDto);
                 }
             }
+
+            // 2. 기본 정보로 엔티티 생성/업데이트
+            Optional<Concert> existingConcert = concertRepository.findByKopisId(dto.getMt20id());
+
+            Concert concert;
+            if (existingConcert.isPresent()) {
+                concert = existingConcert.get();
+                concert.updateFromKopisData(dto);
+                result.addSuccess(false); // 업데이트
+            } else {
+                concert = Concert.fromKopisData(dto, defaultRegion, systemMember);
+                result.addSuccess(true); // 신규생성
+            }
+
+            concertRepository.save(concert);
         } catch(Exception e) {
-            log.warn("상세 정보 조회 실패: {} - {}", dto.getMt20id(), e.getMessage());
+            log.error("공연 상세 정보 처리 실패: {}", dto.getMt20id(), e.getMessage());
+            result.addFailure("공연 ID " + dto.getMt20id() + "처리 실패: " + e.getMessage());
+        }
+    }
+
+    private void mergeDetailInfo(KopisPerformanceDto basicDto, KopisPerformanceDto detailDto) {
+        // 상세 정보를 기본 정보에 복사
+        if(detailDto.getPrftime() != null) {
+            basicDto.setPrftime(detailDto.getPrftime());
         }
 
-        concertRepository.save(concert);
-        result.addSuccess(isNewConcert);
+        if(detailDto.getPcseguidance() != null) {
+            basicDto.setPcseguidance(detailDto.getPcseguidance());
+        }
+        
+        if(detailDto.getEntrpsnmS() != null) {
+            basicDto.setEntrpsnmS(detailDto.getEntrpsnmS());
+        }
     }
 
     /**
