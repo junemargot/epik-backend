@@ -126,44 +126,4 @@ public class KopisApiService {
             throw new RuntimeException("KOPIS 상세정보 조회 실패", e);
         }
     }
-
-
-    /**
-     * 시설 목록 조회
-     */
-    public String getFacilityList(int cPage, int rows) {
-        try {
-            return webClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/prfplc")
-                            .queryParam("service", kopisApiConfig.getApi().getKey())
-                            .queryParam("cpage", cPage)
-                            .queryParam("rows", rows)
-                            .build())
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .timeout(Duration.ofMillis(kopisApiConfig.getApi().getTimeout()))
-                    .block();
-        } catch(Exception e) {
-            log.error("KOPIS 시설 목록 조회 실패: {}", e.getMessage());
-            throw new RuntimeException("KOPIS 시설 목록 조회 실패", e);
-        }
-    }
-
-    public String getFacilityDetail(String mt10id) {
-        try {
-            return webClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/prfplc/{mt10id}")
-                            .queryParam("service", kopisApiConfig.getApi().getKey())
-                            .build(mt10id))
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .timeout(Duration.ofMillis(kopisApiConfig.getApi().getTimeout()))
-                    .block();
-        } catch(Exception e) {
-            log.error("KOPIS 시설 상세 조회 실패: {}", e.getMessage());
-            throw new RuntimeException("KOPIS 시설 상세 조회 실패", e);
-        }
-    }
 }
