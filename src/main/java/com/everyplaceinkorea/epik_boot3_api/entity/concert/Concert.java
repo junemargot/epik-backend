@@ -11,12 +11,11 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.annotations.CurrentTimestamp;
-import reactor.core.publisher.Mono;
-
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
 
 @Slf4j
 @Getter
@@ -165,23 +164,19 @@ public class Concert {
     concert.setKopisArea(dto.getArea());
     concert.setKopisPoster(dto.getPoster());
 
-    // 가공된 데이터 설정
-    concert.setTitle(cleanKopisTitle(dto.getPrfnm()) != null && !cleanKopisTitle(dto.getPrfnm()).trim().isEmpty() 
-                     ? cleanKopisTitle(dto.getPrfnm()) : "제목 없음");
-    concert.setVenue(dto.getFcltynm() != null && !dto.getFcltynm().trim().isEmpty() 
-                     ? dto.getFcltynm() : "공연장 정보 없음");
-    concert.setContent(generateKopisContent(dto));
-    concert.setAddress(dto.getArea() != null && !dto.getArea().trim().isEmpty() 
-                       ? dto.getArea() : "주소 정보 없음");
+    // 제목 매핑
+    String cleanTitle = cleanKopisTitle(dto.getPrfnm());
+    concert.setTitle(isValidString(cleanTitle) ? cleanTitle : dto.getPrfnm());
 
-    // 날짜 변환
-    concert.setStartDate(parseKopisDate(dto.getPrfpdfrom()) != null 
-                         ? parseKopisDate(dto.getPrfpdfrom()) 
-                         : LocalDate.now());
-    concert.setEndDate(parseKopisDate(dto.getPrfpdto()) != null 
-                       ? parseKopisDate(dto.getPrfpdto()) 
-                       : LocalDate.now().plusDays(1));
-
+    // 공연장명 매핑
+    concert.setVenue(isValidString(dto.getFcltynm()) ? dto.getFcltynm() : "공연장 정보 없음");
+    // 주소 매핑
+    concert.setAddress(buildDetailedAddress(dto.getArea(), dto.getFcltynm()));
+    // 내용 생성
+    concert.setContent(generateContent(dto));
+    // 날짜 매핑
+    concert.setStartDate(parseKopisDateSafely(dto.getPrfpdfrom()));
+    concert.setEndDate(parseKopisDateSafely(dto.getPrfpdto()));
     // 메타데이터 설정
     concert.setDataSource(DataSource.KOPIS_API);
     concert.setLastSynced(LocalDateTime.now());
@@ -189,16 +184,17 @@ public class Concert {
     concert.setMember(member);
     concert.setStatus(Status.ACTIVE);
     concert.setViewCount(0);
-    
-    // KOPIS 포스터를 기존 이미지 시스템에 연결
-    if (dto.getPoster() != null && !dto.getPoster().trim().isEmpty()) {
-      concert.setFilePath(dto.getPoster()); // KOPIS 포스터 URL을 file_path에 저장
-      concert.setFileSavedName(extractFileNameFromUrl(dto.getPoster())); // URL에서 파일명 추출
-    }
-    
-    // 추가 필드 매핑
-    concert.setRunningTime(dto.getOpenrun() != null && dto.getOpenrun().equals("Y") ? "오픈런" : null);
-    concert.setAgeRestriction("전체 관람가"); // KOPIS API에서 연령 제한 정보가 별도로 없어서 기본값
+    concert.setDetailImages(dto.getStyurls());
+    // 이미지 매핑
+    setupImageData(concert, dto);
+    // 추가 필드 설정
+    concert.setRunningTime(determineRunningTime(dto));
+    concert.setAgeRestriction(determineAgeRestriction(dto));
+
+    System.out.println("=== fromKopisData 상세 이미지 확인 ===");
+    System.out.println("styurls: " + dto.getStyurls());
+    System.out.println("===================");
+
 
     return concert;
   }
@@ -207,6 +203,7 @@ public class Concert {
    * 기존 Concert를 KOPIS 데이터로 업데이트
    */
   public void updateFromKopisData(KopisPerformanceDto dto) {
+    log.debug("Concert 업데이트 시작: ID={}, KOPIS_ID={}", this.id, dto.getMt20id());
 
     // KOPIS 원본 데이터 업데이트
     this.kopisPrfnm = dto.getPrfnm();
@@ -216,21 +213,43 @@ public class Concert {
     this.kopisArea = dto.getArea();
     this.kopisPoster = dto.getPoster();
 
+    this.setRunningTime(determineRunningTime(dto));
+    this.setAgeRestriction(determineAgeRestriction(dto));
+
     // 가공된 데이터 업데이트
-    this.title = cleanKopisTitle(dto.getPrfnm());
-    this.venue = dto.getFcltynm();
-    this.content = generateKopisContent(dto);
+    String newTitle = cleanKopisTitle(dto.getPrfnm());
+    if(isValidString(newTitle)) {
+      this.title = title;
+    }
+
+    if(isValidString(dto.getFcltynm())) {
+      this.venue = dto.getFcltynm();
+//      this.address = buildDetailedAddress(dto.getArea(), dto.getFcltynm());
+    }
+
+    // 컨텐츠 업데이트
+    if(this.dataSource == DataSource.KOPIS_API) {
+      this.content = generateContent(dto);
+    }
 
     // 날짜 업데이트
-    this.startDate = parseKopisDate(dto.getPrfpdfrom()) != null
-                     ? parseKopisDate(dto.getPrfpdfrom())
-                     : this.startDate; // 기존 값 유지
-    this.endDate = parseKopisDate(dto.getPrfpdto()) != null
-                   ? parseKopisDate(dto.getPrfpdto())
-                   : this.endDate; // 기존 값 유지
+    LocalDate newStartDate = parseKopisDateSafely(dto.getPrfpdfrom());
+    LocalDate newEndDate = parseKopisDateSafely(dto.getPrfpdto());
+    if(newStartDate != null) this.startDate = newStartDate;
+    if(newEndDate != null) this.endDate = newEndDate;
 
     // 동기화 시간 갱신
     this.lastSynced = LocalDateTime.now();
+
+    // 이미지 업데이트
+    this.setDetailImages(dto.getStyurls());
+    setupImageData(this, dto);
+    // Concert.fromKopisData 또는 updateFromKopisData 메소드에 추가
+    System.out.println("=== updateFromKopisData 상세 이미지 확인 ===");
+    System.out.println("styurls: " + dto.getStyurls());
+    System.out.println("===================");
+
+    log.debug("Concert 업데이트 완료: title={}, venue={}", this.title, this.venue);
 
     // KOPIS 포스터를 기존 이미지 시스템에 연결
     if (dto.getPoster() != null && !dto.getPoster().trim().isEmpty()) {
@@ -243,16 +262,20 @@ public class Concert {
     if (this.ageRestriction == null) {
       this.ageRestriction = "전체 관람가";
     }
+
   }
 
   /**
    * KOPIS 상세 정보로 엔티티 업데이트
    */
   public void updateFromKopisDetailData(KopisPerformanceDto dto) {
+    log.debug("상세 정보 업데이트 시작: {}", this.title);
+
     // 공연시간 정보 업데이트
-    if (dto.getPrftime() != null && !dto.getPrftime().trim().isEmpty()) {
+    if (isValidString(dto.getPrftime())) {
       this.performanceTime = dto.getPrftime();
-      // 공연시간에서 running time 추출 시도
+
+      // 러닝타임 정보 추출 및 업데이트
       String extractedTime = extractRunningTime(dto.getPrftime());
       if (extractedTime != null) {
         this.runningTime = extractedTime;
@@ -260,108 +283,55 @@ public class Concert {
     }
 
     // 티켓가격 정보 업데이트
-    if (dto.getPcseguidance() != null && !dto.getPcseguidance().trim().isEmpty()) {
+    if (isValidString(dto.getPcseguidance())) {
       this.ticketPrice = dto.getPcseguidance();
     }
 
     // 할인정보 업데이트
-    if (dto.getDtguidance() != null && !dto.getDtguidance().trim().isEmpty()) {
+    if (isValidString(dto.getDtguidance())) {
       this.discountInfo = dto.getDtguidance();
     }
 
     // 상세 이미지 목록 업데이트
-    if (dto.getStyurls() != null && !dto.getStyurls().trim().isEmpty()) {
+    if (isValidString(dto.getStyurls())) {
       this.detailImages = dto.getStyurls();
     }
 
-    // 관람연령 업데이트
-    if (dto.getPrfage() != null && !dto.getPrfage().trim().isEmpty()) {
+    // 관람연령 업데이트 (개선된 로직)
+    if (isValidString(dto.getPrfage())) {
       this.ageLimit = dto.getPrfage();
-      this.ageRestriction = dto.getPrfage(); // 기존 필드도 업데이트
+      this.ageRestriction = normalizeAgeRestriction(dto.getPrfage());
     }
 
-    // 제작사 정보 업데이트
-    if (dto.getEntrpsnmH() != null && !dto.getEntrpsnmH().trim().isEmpty()) {
-      this.producer = dto.getEntrpsnmH();
+    // 출연진/제작진 정보 업데이트
+    if (isValidString(dto.getPrfcast()) || isValidString(dto.getPrfcrew())) {
+      this.castStaff = buildCastStaffInfo(dto.getPrfcast(), dto.getPrfcrew());
     }
 
-    // 주최/주관 정보 업데이트
-    if (dto.getEntrpsnmP() != null && !dto.getEntrpsnmP().trim().isEmpty()) {
-      this.organizer = dto.getEntrpsnmP();
+    // 기업 정보 업데이트 (개선된 필드 매핑)
+    updateEnterpriseInfo(dto);
+
+    // 러닝타임 정보 추가 업데이트
+    if (isValidString(dto.getPrfruntime()) && !isValidString(this.runningTime)) {
+      this.runningTime = dto.getPrfruntime();
     }
 
-    // 후원/협력 정보 업데이트
-    if (dto.getEntrpsnmA() != null && !dto.getEntrpsnmA().trim().isEmpty()) {
-      this.sponsor = dto.getEntrpsnmA();
-    }
-
-    // 예매처 정보 업데이트
-    if (dto.getEntrpsnmS() != null && !dto.getEntrpsnmS().trim().isEmpty()) {
-      this.bookingSite = dto.getEntrpsnmS();
-    }
-
-    log.debug("상세 정보 업데이트 완료: {} - 티켓가격: {}, 예매처: {}",
-            this.title,
+    log.debug("상세 정보 업데이트 완료: 티켓가격={}, 예매처={}, 관람연령={}",
             this.ticketPrice != null ? "있음" : "없음",
-            this.bookingSite != null ? "있음" : "없음");
-  }
-
-  /**
-   * 상세 이미지 URL 목록을 파싱하여 배열로 반환
-   */
-  public String[] getDetailImageArray() {
-    if (this.detailImages == null || this.detailImages.trim().isEmpty()) {
-      return new String[0];
-    }
-
-    try {
-      // KOPIS API는 이미지 URL을 특정 구분자로 제공할 수 있음
-      // 일반적으로는 콤마(,) 또는 파이프(|)로 구분
-      return this.detailImages.split("[,|]");
-    } catch (Exception e) {
-      log.warn("상세 이미지 파싱 실패: {}", this.detailImages);
-      return new String[0];
-    }
-  }
-
-  /**
-   * 티켓 가격 정보를 구조화된 형태로 파싱
-   */
-  public java.util.Map<String, String> getParsedTicketPrices() {
-    java.util.Map<String, String> priceMap = new java.util.HashMap<>();
-
-    if (this.ticketPrice == null || this.ticketPrice.trim().isEmpty()) {
-      return priceMap;
-    }
-
-    try {
-      // "VIP석 150,000원, R석 120,000원" 형태 파싱
-      String[] prices = this.ticketPrice.split(",");
-      for (String price : prices) {
-        if (price.contains("원")) {
-          String[] parts = price.trim().split("\\s+");
-          if (parts.length >= 2) {
-            String seatType = parts[0];
-            String priceValue = parts[parts.length - 1];
-            priceMap.put(seatType, priceValue);
-          }
-        }
-      }
-    } catch (Exception e) {
-      log.warn("티켓 가격 파싱 실패: {}", this.ticketPrice);
-    }
-
-    return priceMap;
+            this.bookingSite != null ? "있음" : "없음",
+            this.ageLimit);
   }
 
   /**
    * 공연시간 텍스트에서 러닝타임 추출
    */
   private String extractRunningTime(String performanceTime) {
-    if (performanceTime == null) return null;
+    if (!isValidString(performanceTime)) {
+      return null;
+    }
 
     try {
-      // "총 120분" 또는 "120분" 패턴 찾기
+      // "총 120분", "120분" 패턴
       java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(총\\s*)?(\\d+)분");
       java.util.regex.Matcher matcher = pattern.matcher(performanceTime);
 
@@ -369,7 +339,7 @@ public class Concert {
         return matcher.group(2) + "분";
       }
 
-      // "2시간 30분" 패턴 찾기
+      // "2시간 30분", "2시간" 패턴
       pattern = java.util.regex.Pattern.compile("(\\d+)시간\\s*(\\d+)?분?");
       matcher = pattern.matcher(performanceTime);
 
@@ -378,6 +348,14 @@ public class Concert {
         int minutes = matcher.group(2) != null ? Integer.parseInt(matcher.group(2)) : 0;
         int totalMinutes = hours * 60 + minutes;
         return totalMinutes + "분";
+      }
+
+      // "약 90분" 패턴
+      pattern = java.util.regex.Pattern.compile("약\\s*(\\d+)분");
+      matcher = pattern.matcher(performanceTime);
+
+      if (matcher.find()) {
+        return matcher.group(1) + "분";
       }
 
     } catch (Exception e) {
@@ -391,40 +369,28 @@ public class Concert {
    * URL에서 파일명 추출
    */
   private static String extractFileNameFromUrl(String url) {
-    if (url == null || url.trim().isEmpty()) {
-      return null;
-    }
-    
-    try {
-      String[] parts = url.split("/");
-      return parts[parts.length - 1]; // 마지막 부분이 파일명
-    } catch (Exception e) {
-      log.warn("URL에서 파일명 추출 실패: {}", url);
-      return "kopis_poster.jpg"; // 기본 파일명
-    }
-  }
-
-  /**
-   * KOPIS 날짜 형식을 LocalDate로 변환
-   */
-  private static LocalDate parseKopisDate(String kopisDate) {
-    if(kopisDate == null || kopisDate.trim().isEmpty()) {
-      log.warn("KOPIS 날짜가 비어있습니다: {}", kopisDate);
-      return null;
+    if (!isValidString(url)) {
+      return "default_poster.jpg";
     }
 
     try {
-      // YYYYMMDD 형식 파싱
-      String cleanDate = kopisDate.trim().replaceAll("[^0-9]", ""); // 숫자만 추출
-      if (cleanDate.length() == 8) {
-        return LocalDate.parse(cleanDate, DateTimeFormatter.ofPattern("yyyyMMdd"));
-      } else {
-        log.warn("KOPIS 날짜 형식이 올바르지 않습니다: {} -> {}", kopisDate, cleanDate);
-        return null;
+      // URL에서 파일명 부분 추출
+      String fileName = url.substring(url.lastIndexOf("/") + 1);
+
+      // 쿼리 파라미터 제거
+      if (fileName.contains("?")) {
+        fileName = fileName.substring(0, fileName.indexOf("?"));
       }
-    } catch(Exception e) {
-      log.error("KOPIS 날짜 파싱 실패: {} - {}", kopisDate, e.getMessage());
-      return null;
+
+      // 확장자가 없으면 기본 확장자 추가
+      if (!fileName.contains(".")) {
+        fileName += ".jpg";
+      }
+
+      return fileName;
+    } catch (Exception e) {
+      log.warn("URL에서 파일명 추출 실패: {} - {}", url, e.getMessage());
+      return "kopis_poster_" + System.currentTimeMillis() + ".jpg";
     }
   }
 
@@ -432,33 +398,275 @@ public class Concert {
    * KOPIS 공연명 정리
    */
   private static String cleanKopisTitle(String title) {
-    if(title == null) return "";
-    return title.trim()
-            .replaceAll("\\[.*?\\]", "")  // [대학로] 제거
-            .replaceAll("\\(.*?\\)", "")  // (재공연) 제거
+    if (!isValidString(title)) {
+      return null;
+    }
+
+    String cleaned = title.trim()
+            .replaceAll("\\[.*?\\]", "")  // [대학로], [앵콜] 등 제거
+            .replaceAll("\\(.*?재공연.*?\\)", "")  // (재공연) 제거
+            .replaceAll("\\(.*?앵콜.*?\\)", "")   // (앵콜) 제거
+            .replaceAll("\\s+", " ")      // 연속된 공백을 하나로
             .trim();
+
+    return cleaned.isEmpty() ? title : cleaned;
+  }
+
+  /*
+  * 콘텐츠 생성
+  */
+  private static String generateContent(KopisPerformanceDto dto) {
+    StringBuilder content = new StringBuilder();
+
+    // 기본 정보 (이모지 제거)
+    if (isValidString(dto.getGenrenm())) {
+      content.append("장르: ").append(dto.getGenrenm()).append("\n");
+    }
+
+    if (isValidString(dto.getPrfstate())) {
+      content.append("공연상태: ").append(dto.getPrfstate()).append("\n");
+    }
+
+    if (isValidString(dto.getArea())) {
+      content.append("지역: ").append(dto.getArea()).append("\n");
+    }
+
+    if (isValidString(dto.getFcltynm())) {
+      content.append("공연장: ").append(dto.getFcltynm()).append("\n");
+    }
+
+    // 기본 메시지
+    content.append("\nKOPIS에서 제공하는 공연 정보입니다.");
+
+    return content.toString();
   }
 
   /**
-   * KOPIS 정보로 기본 설명 생성
+   * 문자열 유효성 검사
    */
-  private static String generateKopisContent(KopisPerformanceDto dto) {
-    StringBuilder content = new StringBuilder();
-    
-    if (dto.getGenrenm() != null && !dto.getGenrenm().trim().isEmpty()) {
-      content.append("장르: ").append(dto.getGenrenm()).append("\n");
+  private static boolean isValidString(String str) {
+    return str != null && !str.trim().isEmpty() && !"".equals(str.trim());
+  }
+
+  /**
+   * 상세 주소 생성 (지역 + 공연장명)
+   */
+  private static String buildDetailedAddress(String area, String fcltynm) {
+    StringBuilder address = new StringBuilder();
+
+    if (isValidString(area)) {
+      address.append(area);
     }
-    if (dto.getArea() != null && !dto.getArea().trim().isEmpty()) {
-      content.append("지역: ").append(dto.getArea()).append("\n");
+
+    if (isValidString(fcltynm)) {
+      if (address.length() > 0) {
+        address.append(" ");
+      }
+      address.append(fcltynm);
     }
-    if (dto.getPrfstate() != null && !dto.getPrfstate().trim().isEmpty()) {
-      content.append("공연상태: ").append(dto.getPrfstate()).append("\n");
+
+    return address.length() > 0 ? address.toString() : "주소 정보 없음";
+  }
+
+  /**
+   * 안전한 날짜 파싱
+   */
+  private static LocalDate parseKopisDateSafely(String kopisDate) {
+    if (!isValidString(kopisDate)) {
+      log.warn("날짜 정보가 비어있습니다: {}", kopisDate);
+      return LocalDate.now(); // 기본값으로 오늘 날짜 사용
     }
-    if (dto.getFcltynm() != null && !dto.getFcltynm().trim().isEmpty()) {
-      content.append("공연장: ").append(dto.getFcltynm()).append("\n");
+
+    try {
+      String cleanDate = kopisDate.trim().replaceAll("[^0-9]", "");
+      if (cleanDate.length() == 8) {
+        return LocalDate.parse(cleanDate, DateTimeFormatter.ofPattern("yyyyMMdd"));
+      } else {
+        log.warn("날짜 형식이 올바르지 않습니다: {} -> {}", kopisDate, cleanDate);
+        return LocalDate.now();
+      }
+    } catch(Exception e) {
+      log.error("날짜 파싱 실패: {} - {}", kopisDate, e.getMessage());
+      return LocalDate.now();
     }
-    
-    String result = content.toString();
-    return result.isEmpty() ? "KOPIS에서 가져온 공연 정보입니다." : result;
+  }
+
+  private static void setupImageData(Concert concert, KopisPerformanceDto dto) {
+    // KOPIS 포스터를 기존 이미지 시스템에 연결
+    if (dto.getPoster() != null && !dto.getPoster().trim().isEmpty()) {
+      concert.setFilePath(dto.getPoster()); // KOPIS 포스터 URL을 file_path에 저장
+      concert.setFileSavedName(extractFileNameFromUrl(dto.getPoster())); // URL에서 파일명 추출
+
+//       파일명 추출 (URL에서)
+      String fileName = extractFileNameFromUrl(dto.getPoster());
+      concert.setFileSavedName(fileName);
+    }
+  }
+
+  /**
+   * 러닝타임 결정
+   */
+  private static String determineRunningTime(KopisPerformanceDto dto) {
+    // 기타 러닝타임 정보가 있다면 사용
+    if (isValidString(dto.getPrfruntime())) {
+      String originalTime = dto.getPrfruntime();
+      String convertedTime = convertToMinutes(originalTime);
+
+      // 로깅 추가
+      System.out.println("=== 러닝타임 변환 ===");
+      System.out.println("원본: " + originalTime);
+      System.out.println("변환: " + convertedTime);
+      System.out.println("==================");
+
+      return convertedTime;
+    }
+    return null;
+  }
+
+  /**
+   * 시간 표현을 분 단위로 변환
+   * 예: "2시간" -> "120분", "1시간 30분" -> "90분", "90분" -> "90분"
+   */
+  private static String convertToMinutes(String timeStr) {
+    if (timeStr == null || timeStr.trim().isEmpty()) {
+      return null;
+    }
+
+    String cleanTime = timeStr.trim().replaceAll("약\\s*", ""); // "약" 제거
+    int totalMinutes = 0;
+
+    try {
+      System.out.println("변환 처리 중: " + cleanTime); // 디버그 로그
+
+      // "2시간 30분" 형태 파싱
+      if (cleanTime.contains("시간") && cleanTime.contains("분")) {
+        String[] parts = cleanTime.split("시간");
+        if (parts.length >= 2) {
+          // 시간 부분
+          String hourPart = parts[0].trim().replaceAll("[^0-9]", "");
+          if (!hourPart.isEmpty()) {
+            totalMinutes += Integer.parseInt(hourPart) * 60;
+            System.out.println("시간 파트: " + hourPart + " -> " + (Integer.parseInt(hourPart) * 60) + "분");
+          }
+
+          // 분 부분
+          String minutePart = parts[1].trim().replaceAll("[^0-9]", "");
+          if (!minutePart.isEmpty()) {
+            totalMinutes += Integer.parseInt(minutePart);
+            System.out.println("분 파트: " + minutePart + "분");
+          }
+        }
+      }
+      // "2시간" 형태 파싱
+      else if (cleanTime.contains("시간")) {
+        String hourPart = cleanTime.replaceAll("[^0-9]", "");
+        if (!hourPart.isEmpty()) {
+          totalMinutes = Integer.parseInt(hourPart) * 60;
+          System.out.println("시간만: " + hourPart + " -> " + totalMinutes + "분");
+        }
+      }
+      // "90분" 형태 파싱
+      else if (cleanTime.contains("분")) {
+        String minutePart = cleanTime.replaceAll("[^0-9]", "");
+        if (!minutePart.isEmpty()) {
+          totalMinutes = Integer.parseInt(minutePart);
+          System.out.println("분만: " + minutePart + "분");
+        }
+      }
+      // 숫자만 있는 경우 (분으로 가정)
+      else if (cleanTime.matches("\\d+")) {
+        totalMinutes = Integer.parseInt(cleanTime);
+        System.out.println("숫자만: " + cleanTime + "분");
+      }
+
+      String result = totalMinutes > 0 ? totalMinutes + "분" : null;
+      System.out.println("최종 결과: " + result);
+      return result;
+
+    } catch (NumberFormatException e) {
+      System.out.println("변환 실패, 원본 반환: " + timeStr);
+      // 파싱 실패시 원본 반환
+      return timeStr;
+    }
+  }
+
+  /**
+   * 연령 제한 결정
+   */
+  private static String determineAgeRestriction(KopisPerformanceDto dto) {
+    if (isValidString(dto.getPrfage())) {
+      return normalizeAgeRestriction(dto.getPrfage());
+    }
+    return "전체 관람가"; // 기본값
+  }
+
+  /**
+   * 연령 제한 정규화
+   */
+  private static String normalizeAgeRestriction(String ageInfo) {
+    if (!isValidString(ageInfo)) {
+      return "전체 관람가";
+    }
+
+    String normalized = ageInfo.toLowerCase().trim();
+
+    // 일반적인 패턴 매핑
+    if (normalized.contains("전체") || normalized.contains("all")) {
+      return "전체 관람가";
+    } else if (normalized.contains("12")) {
+      return "12세 이상 관람가";
+    } else if (normalized.contains("15")) {
+      return "15세 이상 관람가";
+    } else if (normalized.contains("18") || normalized.contains("19")) {
+      return "19세 이상 관람가";
+    }
+
+    // 원본 그대로 반환
+    return ageInfo;
+  }
+
+  /**
+   * 출연진/제작진 정보 구성
+   */
+  private static String buildCastStaffInfo(String cast, String crew) {
+    StringBuilder info = new StringBuilder();
+
+    if (isValidString(cast)) {
+      info.append("출연진: ").append(cast);
+    }
+
+    if (isValidString(crew)) {
+      if (info.length() > 0) {
+        info.append("\n");
+      }
+      info.append("제작진: ").append(crew);
+    }
+
+    return info.length() > 0 ? info.toString() : null;
+  }
+
+  /**
+   * 기업 정보 업데이트
+   */
+  private void updateEnterpriseInfo(KopisPerformanceDto dto) {
+    // 제작사 정보 (주최)
+    if (isValidString(dto.getEntrpsnmH())) {
+      this.producer = dto.getEntrpsnmH();
+    }
+
+    // 주최/주관 정보 (기획사)
+    if (isValidString(dto.getEntrpsnmP())) {
+      this.organizer = dto.getEntrpsnmP();
+    }
+
+    // 후원/협력 정보
+    if (isValidString(dto.getEntrpsnmA())) {
+      this.sponsor = dto.getEntrpsnmA();
+    }
+
+    // 예매처 정보 (주관 - 예매처)
+    if (isValidString(dto.getEntrpsnmS())) {
+      this.bookingSite = dto.getEntrpsnmS();
+    }
   }
 }
