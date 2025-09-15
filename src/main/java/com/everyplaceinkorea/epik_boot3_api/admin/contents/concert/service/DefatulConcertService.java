@@ -27,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -129,6 +130,16 @@ public class DefatulConcertService implements ConcertService {
     if(concert.getDataSource() == DataSource.KOPIS_API) {
       concertResponseDto.setImageUrl(concert.getKopisPoster()); // KOPIS 원본 포스터 URL
       concertResponseDto.setSaveImageName(concert.getFileSavedName()); // 파일명 설정
+
+      // 상세 이미지 처리 추가
+      if (concert.getDetailImages() != null && !concert.getDetailImages().trim().isEmpty()) {
+        String[] imageUrls = concert.getDetailImages().split(",");
+        List<String> imageList = Arrays.asList(imageUrls);
+        concertResponseDto.setConcertImages(imageList);
+        System.out.println("상세 이미지 설정 완료: " + imageList.size() + "개");
+      } else {
+        System.out.println("상세 이미지 없음");
+      }
     } else {
       concertResponseDto.setSaveImageName(concert.getFileSavedName());
     }
