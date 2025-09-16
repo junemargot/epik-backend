@@ -315,4 +315,19 @@ public class KopisAdminController {
             return ResponseEntity.internalServerError().body(response);
         }
     }
+
+
+    @GetMapping("/parse-ticket-price")
+    public ResponseEntity<?> testTicketPriceParsing() {
+        String testPrice = "R석 80,000원, S석 60,000원, A석 50,000원, B석 30,000원, C석 20,000원";
+
+        // private 메서드를 테스트하기 위해 reflection 사용하거나
+        // 임시로 public 메서드로 만들어서 테스트
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("originalPrice", testPrice);
+        result.put("parsedPrices", "테스트 결과"); // 실제 파싱 결과 넣기
+
+        return ResponseEntity.ok(result);
+    }
 }

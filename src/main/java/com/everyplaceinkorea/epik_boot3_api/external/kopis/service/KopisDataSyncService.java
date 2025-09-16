@@ -1,7 +1,6 @@
 package com.everyplaceinkorea.epik_boot3_api.external.kopis.service;
 
 import com.everyplaceinkorea.epik_boot3_api.entity.Region;
-import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.concert.Concert;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.Musical;
@@ -359,23 +358,39 @@ public class KopisDataSyncService {
 
         try {
             String xmlResponse = kopisApiService.getPerformanceDetail(kopisId);
+            log.info("=== XML 응답 확인 ===");
+            log.info("응답 null 여부: {}", xmlResponse == null);
+            if (xmlResponse != null) {
+                log.info("응답 길이: {}", xmlResponse.length());
+                log.info("응답 내용: {}", xmlResponse);
+            }
 
             if (xmlResponse != null) {
                 List<KopisPerformanceDto> performances = parseXmlToPerformanceList(xmlResponse);
+                log.info("파싱된 공연 수: {}", performances.size());
 
                 if (!performances.isEmpty()) {
                     KopisPerformanceDto performance = performances.get(0);
+                    log.info("파싱된 공연 정보:");
+                    log.info("- mt20id: {}", performance.getMt20id());
+                    log.info("- prfnm: {}", performance.getPrfnm());
+                    log.info("- genrenm: {}", performance.getGenrenm());
+                    
                     Member systemMember = getSystemMember();
                     Region defaultRegion = getDefaultRegion();
                     SyncResult dummyResult = new SyncResult("SINGLE");
 
                     if (isConcertGenre(performance.getGenrenm())) {
+                        log.info("콘서트 장르로 처리");
                         syncSingleConcert(performance, systemMember, defaultRegion, dummyResult);
                     } else if (isMusicalGenre(performance.getGenrenm())) {
+                        log.info("뮤지컬 장르로 처리");
                         syncSingleMusical(performance, systemMember, defaultRegion, dummyResult);
                     } else {
                         log.warn("알 수 없는 장르: {} - {}", kopisId, performance.getGenrenm());
                     }
+                } else {
+                    log.warn("파싱된 공연 데이터가 없습니다");
                 }
             }
 

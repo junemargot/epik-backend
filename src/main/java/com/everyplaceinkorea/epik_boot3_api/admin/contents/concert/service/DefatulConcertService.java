@@ -26,10 +26,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
@@ -121,47 +120,50 @@ public class DefatulConcertService implements ConcertService {
 
     ConcertResponseDto concertResponseDto = modelMapper.map(concert, ConcertResponseDto.class);
     concertResponseDto.setWriter(concert.getMember().getNickname()); // 닉네임 설정
-//    concertResponseDto.setSaveImageName(concert.getFileSavedName()); // 이미지 경로 설정 추가 부분
-
-    // 데이터 소스 설정
-    concertResponseDto.setDataSource(concert.getDataSource());
+    concertResponseDto.setDataSource(concert.getDataSource()); // 데이터 소스 설정
 
     // 이미지 처리 로직 개선
-    if(concert.getDataSource() == DataSource.KOPIS_API) {
-      concertResponseDto.setImageUrl(concert.getKopisPoster()); // KOPIS 원본 포스터 URL
-      concertResponseDto.setSaveImageName(concert.getFileSavedName()); // 파일명 설정
-
-      // 상세 이미지 처리 추가
-      if (concert.getDetailImages() != null && !concert.getDetailImages().trim().isEmpty()) {
-        String[] imageUrls = concert.getDetailImages().split(",");
-        List<String> imageList = Arrays.asList(imageUrls);
-        concertResponseDto.setConcertImages(imageList);
-        System.out.println("상세 이미지 설정 완료: " + imageList.size() + "개");
-      } else {
-        System.out.println("상세 이미지 없음");
-      }
-    } else {
-      concertResponseDto.setSaveImageName(concert.getFileSavedName());
-    }
+//    if(concert.getDataSource() == DataSource.KOPIS_API) {
+//      concertResponseDto.setImageUrl(concert.getKopisPoster()); // KOPIS 원본 포스터 URL
+//      concertResponseDto.setSaveImageName(concert.getFileSavedName()); // 파일명 설정
+//
+//      // 상세 이미지 처리 추가
+//      if (concert.getDetailImages() != null && !concert.getDetailImages().trim().isEmpty()) {
+//        String[] imageUrls = concert.getDetailImages().split(",");
+//        List<String> imageList = Arrays.asList(imageUrls);
+//        concertResponseDto.setConcertImages(imageList);
+//        System.out.println("상세 이미지 설정 완료: " + imageList.size() + "개");
+//      } else {
+//        System.out.println("상세 이미지 없음");
+//      }
+//    } else {
+//      concertResponseDto.setSaveImageName(concert.getFileSavedName());
+//    }
 
     // 티켓 오피스 정보 설정
-    List<ConcertTicketOfficeDto> concertTicketOfficeDtos = new ArrayList<>();
-    for(ConcertTicketOffice ticketOffice : concertTicket) {
-      ConcertTicketOfficeDto ticketOfficeDto = modelMapper.map(ticketOffice, ConcertTicketOfficeDto.class);
+//    List<ConcertTicketOfficeDto> concertTicketOfficeDtos = new ArrayList<>();
+//    for(ConcertTicketOffice ticketOffice : concertTicket) {
+//      ConcertTicketOfficeDto ticketOfficeDto = modelMapper.map(ticketOffice, ConcertTicketOfficeDto.class);
+//
+//      concertTicketOfficeDtos.add(ticketOfficeDto);
+//    }
+//    concertResponseDto.setTicketOffices(concertTicketOfficeDtos); // loop 밖에서 한 번만 설정
+//
+//
+//    // 티켓 가격 정보 설정
+//    List<ConcertTicketPriceDto> concertTicketPriceDtos = new ArrayList<>();
+//    for(ConcertTicketPrice ticketPrice : concertPrice) {
+//      ConcertTicketPriceDto ticketPriceDto = modelMapper.map(ticketPrice, ConcertTicketPriceDto.class);
+//
+//      concertTicketPriceDtos.add(ticketPriceDto);
+//    }
+//    concertResponseDto.setTicketPrices(concertTicketPriceDtos); // loop 밖에서 한 번만 설정
 
-      concertTicketOfficeDtos.add(ticketOfficeDto);
-    }
-    concertResponseDto.setTicketOffices(concertTicketOfficeDtos); // loop 밖에서 한 번만 설정
+    // 이미지 처리 로직
+    handleConcertImages(concert, concertResponseDto);
 
-
-    // 티켓 가격 정보 설정
-    List<ConcertTicketPriceDto> concertTicketPriceDtos = new ArrayList<>();
-    for(ConcertTicketPrice ticketPrice : concertPrice) {
-      ConcertTicketPriceDto ticketPriceDto = modelMapper.map(ticketPrice, ConcertTicketPriceDto.class);
-
-      concertTicketPriceDtos.add(ticketPriceDto);
-    }
-    concertResponseDto.setTicketPrices(concertTicketPriceDtos); // loop 밖에서 한 번만 설정
+    // 티켓 정보 통합 처리 (새로 추가)
+    handleTicketInformation(concert, concertResponseDto);
 
     log.info("응답데이터 save파일 네임 = {}", concertResponseDto.getSaveImageName());
     log.info("응답데이터 imageUrl = {}", concertResponseDto.getImageUrl());
@@ -344,5 +346,173 @@ public class DefatulConcertService implements ConcertService {
               price.setConcert(savedConcert);
               return price;
             }).collect(Collectors.toList());
+  }
+
+  /**
+   * 이미지 처리 로직
+   */
+  private void handleConcertImages(Concert concert, ConcertResponseDto concertResponseDto) {
+    if(concert.getDataSource() == DataSource.KOPIS_API) {
+      concertResponseDto.setImageUrl(concert.getKopisPoster());
+      concertResponseDto.setSaveImageName(concert.getFileSavedName());
+
+      // 상세 이미지 처리
+      if(concert.getDetailImages() != null && !concert.getDetailImages().trim().isEmpty()) {
+        String[] imageUrls = concert.getDetailImages().split(",");
+        List<String> imageList = Arrays.asList(imageUrls);
+        concertResponseDto.setConcertImages(imageList);
+        log.info("상세 이미지 설정 완료: {}개", imageList.size());
+      } else {
+        log.info("상세 이미지 없음");
+      }
+    } else {
+      concertResponseDto.setSaveImageName(concert.getFileSavedName());
+    }
+  }
+
+  /**
+   * 데이터 소수에 따라 티켓 정보 다르게 처리
+   */
+  private void handleTicketInformation(Concert concert, ConcertResponseDto responseDto) {
+    if(concert.getDataSource() == DataSource.KOPIS_API) {
+      handleKopisTicketData(concert, responseDto);
+    } else {
+      handleManualTicketData(concert, responseDto);
+    }
+  }
+
+  /**
+   * KOPIS 티켓 데이터 처리
+   */
+  private void handleKopisTicketData(Concert concert, ConcertResponseDto responseDto) {
+    // 티켓 가격 파싱
+    List<ConcertTicketPriceDto> ticketPriceDtos = parseKopisTicketPrices(concert.getTicketPrice());
+    responseDto.setTicketPrices(ticketPriceDtos);
+
+    // 예매처 파싱
+    List<ConcertTicketOfficeDto> ticketOfficeDtos = parseKopisTicketOffices(concert.getBookingSite());
+    responseDto.setTicketOffices(ticketOfficeDtos);
+
+    log.info("KOPIS 티켓 데이터 파싱 완료 - 가격: {}개, 예매처: {}개", ticketPriceDtos.size(), ticketOfficeDtos.size());
+  }
+
+  /**
+   * 수기 등록 티켓 데이터 처리 (기존 로직)
+   */
+  private void handleManualTicketData(Concert concert, ConcertResponseDto responseDto) {
+    List<ConcertTicketOffice> concertTicket = concertTicketOfficeRepository.findAllByConcertId(concert.getId());
+    List<ConcertTicketPrice> concertPrice = concertTicketPriceRepository.findAllByConcertId(concert.getId());
+
+    // 티켓 오피스 정보 설정
+    List<ConcertTicketOfficeDto> concertTicketOfficeDtos = new ArrayList<>();
+    for(ConcertTicketOffice ticketOffice : concertTicket) {
+      ConcertTicketOfficeDto ticketOfficeDto = modelMapper.map(ticketOffice, ConcertTicketOfficeDto.class);
+      concertTicketOfficeDtos.add(ticketOfficeDto);
+    }
+    responseDto.setTicketOffices(concertTicketOfficeDtos);
+
+
+    // 티켓 가격 정보 설정
+    List<ConcertTicketPriceDto> concertTicketPriceDtos = new ArrayList<>();
+    for(ConcertTicketPrice ticketPrice : concertPrice) {
+      ConcertTicketPriceDto ticketPriceDto = modelMapper.map(ticketPrice, ConcertTicketPriceDto.class);
+      concertTicketPriceDtos.add(ticketPriceDto);
+    }
+    responseDto.setTicketPrices(concertTicketPriceDtos); // loop 밖에서 한 번만 설정
+
+    log.info("수동 등록 티켓 데이터 조회 완료 - 가격: {}개, 예매처: {}개", concertTicketPriceDtos.size(), concertTicketOfficeDtos.size());
+  }
+
+  /**
+   * KOPIS 티켓 가격 문자열 파싱
+   * 예: "R석 80,000원, VIP석 150,000원" -> ConcertTicketPriceDto 리스트
+   */
+  private List<ConcertTicketPriceDto> parseKopisTicketPrices(String ticketPriceStr) {
+    List<ConcertTicketPriceDto> ticketPrices = new ArrayList<>();
+
+    if (ticketPriceStr == null || ticketPriceStr.trim().isEmpty()) {
+      return ticketPrices;
+    }
+
+    log.debug("=== 티켓 가격 파싱 시작 ===");
+    log.debug("원본 문자열: [{}]", ticketPriceStr);
+
+    try {
+      // 천단위 쉼표가 포함된 가격을 추출
+      Pattern pattern = Pattern.compile("([A-Za-z가-힣]+석?)\\s*([0-9,]+원?)");
+      Matcher matcher = pattern.matcher(ticketPriceStr);
+
+      while(matcher.find()) {
+        String seatGrade = matcher.group(1).trim();
+        String priceStr = matcher.group(2);
+
+        if(!priceStr.endsWith("원")) {
+          priceStr += "원";
+        }
+
+        log.debug("매칭된 그룹: 좌석등급=[{}], 가격문자열=[{}]", seatGrade, priceStr);
+
+        ConcertTicketPriceDto dto = new ConcertTicketPriceDto();
+        dto.setSeat(seatGrade);
+        dto.setPrice(priceStr);
+        ticketPrices.add(dto);
+
+        log.info("파싱 성공: {}석 {}원", seatGrade, priceStr);
+      }
+
+      log.info("=== 파싱 완료: 총 {}개 좌석 등급 ===", ticketPrices.size());
+
+    } catch (Exception e) {
+      log.error("티켓 가격 파싱 중 오류: {}", e.getMessage(), e);
+    }
+
+    return ticketPrices;
+  }
+
+  /**
+   * KOPIS 예매처 문자열 파싱
+   * 예: "인터파크티켓, 예스24" -> ConcertTicketOfficeDto 리스트
+   */
+  private List<ConcertTicketOfficeDto> parseKopisTicketOffices(String bookingSiteStr) {
+    List<ConcertTicketOfficeDto> ticketOffices = new ArrayList<>();
+
+    if(bookingSiteStr == null || bookingSiteStr.trim().isEmpty()) {
+      return ticketOffices;
+    }
+
+    try {
+      String[] officeNames = bookingSiteStr.split(",");
+
+      for (String officeName : officeNames) {
+        officeName = officeName.trim();
+
+        if (!officeName.isEmpty()) {
+          ConcertTicketOfficeDto dto = new ConcertTicketOfficeDto();
+          dto.setName(officeName);
+          dto.setLink(generateTicketOfficeLink(officeName));
+
+          ticketOffices.add(dto);
+        }
+      }
+    } catch (Exception e) {
+      log.warn("KOPIS 예매처 파싱 실패: {} - {}", bookingSiteStr, e.getMessage());
+    }
+
+    return ticketOffices;
+  }
+
+  /**
+   * 예매처별 기본 링크 생성
+   */
+  private String generateTicketOfficeLink(String officeName) {
+    Map<String, String> officeLinks = Map.of(
+            "인터파크티켓", "https://ticket.interpark.com",
+            "예스24", "https://ticket.yes24.com",
+            "멜론티켓", "https://ticket.melon.com",
+            "티켓링크", "https://www.ticketlink.co.kr",
+            "옥션티켓", "http://ticket.auction.co.kr"
+    );
+
+    return officeLinks.getOrDefault(officeName, "https://www.kopis.or.kr");
   }
 }
