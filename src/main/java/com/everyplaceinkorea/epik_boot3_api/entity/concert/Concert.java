@@ -153,11 +153,16 @@ public class Concert {
    * KOPIS 데이터로부터 Concert 엔티티 생성
    */
   public static Concert fromKopisData(KopisPerformanceDto dto, Region region, Member member) {
+    log.info("=== fromKopisData 호출됨 ===");
+    log.info("DTO 제목: [{}]", dto.getPrfnm());
+    
     Concert concert = new Concert();
 
     // KOPIS 원본 데이터 보존
     concert.setKopisId(dto.getMt20id());
     concert.setKopisPrfnm(dto.getPrfnm());
+    log.info("kopisPrfnm 설정됨: [{}]", concert.getKopisPrfnm());
+    
     concert.setKopisFcltynm(dto.getFcltynm());
     concert.setKopisGenrenm(dto.getGenrenm());
     concert.setKopisPrfstate(dto.getPrfstate());
@@ -165,8 +170,26 @@ public class Concert {
     concert.setKopisPoster(dto.getPoster());
 
     // 제목 매핑
+    log.info("cleanKopisTitle 호출 전: [{}]", dto.getPrfnm());
     String cleanTitle = cleanKopisTitle(dto.getPrfnm());
-    concert.setTitle(isValidString(cleanTitle) ? cleanTitle : dto.getPrfnm());
+    log.info("cleanKopisTitle 호출 후: [{}]", cleanTitle);
+    
+    // 조건 없이 무조건 설정 (HTML 엔티티 디코딩 보장)
+    if (cleanTitle != null && !cleanTitle.trim().isEmpty()) {
+        concert.setTitle(cleanTitle);
+    } else if (dto.getPrfnm() != null) {
+        // cleanTitle이 비어있으면 원본을 직접 디코딩해서 사용
+        String decodedOriginal = dto.getPrfnm()
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'");
+        concert.setTitle(decodedOriginal);
+    } else {
+        concert.setTitle("제목 없음");
+    }
+    log.info("최종 title 설정: [{}]", concert.getTitle());
 
     // 공연장명 매핑
     concert.setVenue(isValidString(dto.getFcltynm()) ? dto.getFcltynm() : "공연장 정보 없음");
@@ -203,10 +226,14 @@ public class Concert {
    * 기존 Concert를 KOPIS 데이터로 업데이트
    */
   public void updateFromKopisData(KopisPerformanceDto dto) {
-    log.debug("Concert 업데이트 시작: ID={}, KOPIS_ID={}", this.id, dto.getMt20id());
+    log.info("=== updateFromKopisData 호출됨 ===");
+    log.info("Concert 업데이트 시작: ID={}, KOPIS_ID={}", this.id, dto.getMt20id());
+    log.info("DTO 제목: [{}]", dto.getPrfnm());
 
     // KOPIS 원본 데이터 업데이트
     this.kopisPrfnm = dto.getPrfnm();
+    log.info("kopisPrfnm 설정: [{}]", this.kopisPrfnm);
+    
     this.kopisFcltynm = dto.getFcltynm();
     this.kopisGenrenm = dto.getGenrenm();
     this.kopisPrfstate = dto.getPrfstate();
@@ -217,10 +244,24 @@ public class Concert {
     this.setAgeRestriction(determineAgeRestriction(dto));
 
     // 가공된 데이터 업데이트
+    log.info("cleanKopisTitle 호출 전 - DTO.getPrfnm(): [{}]", dto.getPrfnm());
     String newTitle = cleanKopisTitle(dto.getPrfnm());
-    if(isValidString(newTitle)) {
-      this.title = title;
+    log.info("cleanKopisTitle 호출 후 - newTitle: [{}]", newTitle);
+    
+    // 조건 없이 무조건 설정 (HTML 엔티티 디코딩 보장)
+    if (newTitle != null && !newTitle.trim().isEmpty()) {
+        this.title = newTitle;
+    } else if (dto.getPrfnm() != null) {
+        // cleanTitle이 비어있으면 원본을 직접 디코딩해서 사용
+        String decodedOriginal = dto.getPrfnm()
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'");
+        this.title = decodedOriginal;
     }
+    log.info("title 설정 완료: [{}]", this.title);
 
     if(isValidString(dto.getFcltynm())) {
       this.venue = dto.getFcltynm();
@@ -402,12 +443,29 @@ public class Concert {
       return null;
     }
 
+    log.info("=== cleanKopisTitle 실행 ===");
+    log.info("원본 제목: [{}]", title);
+    log.info("원본에 &amp; 포함? {}", title.contains("&amp;"));
+    log.info("원본에 & 포함? {}", title.contains("&"));
+
     String cleaned = title.trim()
+            // HTML 엔티티 디코딩 먼저 수행
+            .replace("&amp;", "&")
+            .replace("&lt;", "<")
+            .replace("&gt;", ">")
+            .replace("&quot;", "\"")
+            .replace("&#39;", "'")
+            // 그 다음 문자열 정리
             .replaceAll("\\[.*?\\]", "")  // [대학로], [앵콜] 등 제거
             .replaceAll("\\(.*?재공연.*?\\)", "")  // (재공연) 제거
             .replaceAll("\\(.*?앵콜.*?\\)", "")   // (앵콜) 제거
             .replaceAll("\\s+", " ")      // 연속된 공백을 하나로
             .trim();
+
+    log.info("정리 후 제목: [{}]", cleaned);
+    log.info("정리 후 &amp; 포함? {}", cleaned.contains("&amp;"));
+    log.info("정리 후 & 포함? {}", cleaned.contains("&"));
+    log.info("=======================");
 
     return cleaned.isEmpty() ? title : cleaned;
   }
