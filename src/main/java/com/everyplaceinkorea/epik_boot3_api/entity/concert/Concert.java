@@ -117,29 +117,8 @@ public class Concert {
   @Column(name = "ticket_price", columnDefinition = "TEXT")
   private String ticketPrice; // 티켓 가격 정보
 
-  @Column(name = "discount_info", columnDefinition = "TEXT")
-  private String discountInfo; // 할인 정보
-
   @Column(name = "detail_images", columnDefinition = "TEXT")
   private String detailImages; // 상세 이미지 URL들 (JSON 배열 형태)
-
-  @Column(name = "booking_site")
-  private String bookingSite; // 예매처
-
-  @Column(name = "cast_staff", columnDefinition = "TEXT")
-  private String castStaff; // 출연진/제작진 정보
-
-  @Column(name = "producer")
-  private String producer; // 제작사
-
-  @Column(name = "organizer")
-  private String organizer; // 주최/주관
-
-  @Column(name = "sponsor")
-  private String sponsor; // 후원/협력
-
-  @Column(name = "performance_time")
-  private String performanceTime; // 공연시간
 
   @Column(name = "age_limit")
   private String ageLimit; // 관람연령
@@ -314,8 +293,6 @@ public class Concert {
 
     // 공연시간 정보 업데이트
     if (isValidString(dto.getPrftime())) {
-      this.performanceTime = dto.getPrftime();
-
       // 러닝타임 정보 추출 및 업데이트
       String extractedTime = extractRunningTime(dto.getPrftime());
       if (extractedTime != null) {
@@ -326,11 +303,6 @@ public class Concert {
     // 티켓가격 정보 업데이트
     if (isValidString(dto.getPcseguidance())) {
       this.ticketPrice = dto.getPcseguidance();
-    }
-
-    // 할인정보 업데이트
-    if (isValidString(dto.getDtguidance())) {
-      this.discountInfo = dto.getDtguidance();
     }
 
     // 상세 이미지 목록 업데이트
@@ -344,23 +316,10 @@ public class Concert {
       this.ageRestriction = normalizeAgeRestriction(dto.getPrfage());
     }
 
-    // 출연진/제작진 정보 업데이트
-    if (isValidString(dto.getPrfcast()) || isValidString(dto.getPrfcrew())) {
-      this.castStaff = buildCastStaffInfo(dto.getPrfcast(), dto.getPrfcrew());
-    }
-
-    // 기업 정보 업데이트 (개선된 필드 매핑)
-    updateEnterpriseInfo(dto);
-
     // 러닝타임 정보 추가 업데이트
     if (isValidString(dto.getPrfruntime()) && !isValidString(this.runningTime)) {
       this.runningTime = dto.getPrfruntime();
     }
-
-    log.debug("상세 정보 업데이트 완료: 티켓가격={}, 예매처={}, 관람연령={}",
-            this.ticketPrice != null ? "있음" : "없음",
-            this.bookingSite != null ? "있음" : "없음",
-            this.ageLimit);
   }
 
   /**
@@ -681,50 +640,5 @@ public class Concert {
 
     // 원본 그대로 반환
     return ageInfo;
-  }
-
-  /**
-   * 출연진/제작진 정보 구성
-   */
-  private static String buildCastStaffInfo(String cast, String crew) {
-    StringBuilder info = new StringBuilder();
-
-    if (isValidString(cast)) {
-      info.append("출연진: ").append(cast);
-    }
-
-    if (isValidString(crew)) {
-      if (info.length() > 0) {
-        info.append("\n");
-      }
-      info.append("제작진: ").append(crew);
-    }
-
-    return info.length() > 0 ? info.toString() : null;
-  }
-
-  /**
-   * 기업 정보 업데이트
-   */
-  private void updateEnterpriseInfo(KopisPerformanceDto dto) {
-    // 제작사 정보 (주최)
-    if (isValidString(dto.getEntrpsnmH())) {
-      this.producer = dto.getEntrpsnmH();
-    }
-
-    // 주최/주관 정보 (기획사)
-    if (isValidString(dto.getEntrpsnmP())) {
-      this.organizer = dto.getEntrpsnmP();
-    }
-
-    // 후원/협력 정보
-    if (isValidString(dto.getEntrpsnmA())) {
-      this.sponsor = dto.getEntrpsnmA();
-    }
-
-    // 예매처 정보 (주관 - 예매처)
-    if (isValidString(dto.getEntrpsnmS())) {
-      this.bookingSite = dto.getEntrpsnmS();
-    }
   }
 }

@@ -390,10 +390,10 @@ public class DefatulConcertService implements ConcertService {
     responseDto.setTicketPrices(ticketPriceDtos);
 
     // 예매처 파싱
-    List<ConcertTicketOfficeDto> ticketOfficeDtos = parseKopisTicketOffices(concert.getBookingSite());
-    responseDto.setTicketOffices(ticketOfficeDtos);
+//    List<ConcertTicketOfficeDto> ticketOfficeDtos = parseKopisTicketOffices(concert.getBookingSite());
+//    responseDto.setTicketOffices(ticketOfficeDtos);
 
-    log.info("KOPIS 티켓 데이터 파싱 완료 - 가격: {}개, 예매처: {}개", ticketPriceDtos.size(), ticketOfficeDtos.size());
+//    log.info("KOPIS 티켓 데이터 파싱 완료 - 가격: {}개, 예매처: {}개", ticketPriceDtos.size(), ticketOfficeDtos.size());
   }
 
   /**
@@ -467,52 +467,5 @@ public class DefatulConcertService implements ConcertService {
     }
 
     return ticketPrices;
-  }
-
-  /**
-   * KOPIS 예매처 문자열 파싱
-   * 예: "인터파크티켓, 예스24" -> ConcertTicketOfficeDto 리스트
-   */
-  private List<ConcertTicketOfficeDto> parseKopisTicketOffices(String bookingSiteStr) {
-    List<ConcertTicketOfficeDto> ticketOffices = new ArrayList<>();
-
-    if(bookingSiteStr == null || bookingSiteStr.trim().isEmpty()) {
-      return ticketOffices;
-    }
-
-    try {
-      String[] officeNames = bookingSiteStr.split(",");
-
-      for (String officeName : officeNames) {
-        officeName = officeName.trim();
-
-        if (!officeName.isEmpty()) {
-          ConcertTicketOfficeDto dto = new ConcertTicketOfficeDto();
-          dto.setName(officeName);
-          dto.setLink(generateTicketOfficeLink(officeName));
-
-          ticketOffices.add(dto);
-        }
-      }
-    } catch (Exception e) {
-      log.warn("KOPIS 예매처 파싱 실패: {} - {}", bookingSiteStr, e.getMessage());
-    }
-
-    return ticketOffices;
-  }
-
-  /**
-   * 예매처별 기본 링크 생성
-   */
-  private String generateTicketOfficeLink(String officeName) {
-    Map<String, String> officeLinks = Map.of(
-            "인터파크티켓", "https://ticket.interpark.com",
-            "예스24", "https://ticket.yes24.com",
-            "멜론티켓", "https://ticket.melon.com",
-            "티켓링크", "https://www.ticketlink.co.kr",
-            "옥션티켓", "http://ticket.auction.co.kr"
-    );
-
-    return officeLinks.getOrDefault(officeName, "https://www.kopis.or.kr");
   }
 }
