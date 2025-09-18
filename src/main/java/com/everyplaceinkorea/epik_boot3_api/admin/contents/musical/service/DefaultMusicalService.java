@@ -1,7 +1,10 @@
 package com.everyplaceinkorea.epik_boot3_api.admin.contents.musical.service;
 
+import com.everyplaceinkorea.epik_boot3_api.admin.contents.concert.dto.ConcertResponseDto;
+import com.everyplaceinkorea.epik_boot3_api.admin.contents.concert.dto.ConcertTicketPriceDto;
 import com.everyplaceinkorea.epik_boot3_api.admin.contents.musical.dto.*;
 import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
+import com.everyplaceinkorea.epik_boot3_api.entity.concert.Concert;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.entity.Region;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.*;
@@ -30,8 +33,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
@@ -208,28 +214,12 @@ public class DefaultMusicalService implements MusicalService {
 //        responseDto.setSaveImageName(musical.getFileSavedName());
         responseDto.setDataSource(musical.getDataSource());
 
-        // 이미지 처리 로직 개선
-        if (musical.getDataSource() == DataSource.KOPIS_API) {
-            // KOPIS 데이터인 경우
-            responseDto.setImageUrl(musical.getKopisPoster()); // KOPIS 원본 포스터 URL
-            responseDto.setSaveImageName(musical.getFileSavedName()); // 파일명도 설정
-        } else {
-            // 수기 입력 데이터인 경우
-            responseDto.setSaveImageName(musical.getFileSavedName());
-            // imageUrl은 프론트엔드에서 동적으로 생성하거나 getImageUrl() 메소드 사용
-        }
+        // 이미지 처리 로직
+        handleMusicalImages(musical, responseDto);
 
-        List<MusicalTicketPriceDto> ticketPriceDtos = allByMusicalTicketPrice
-                .stream()
-                .map(ticketPrice -> modelMapper.map(ticketPrice, MusicalTicketPriceDto.class))
-                .toList();
-        responseDto.setTicketPrices(ticketPriceDtos);
+        // 티켓 정보 통합 처리 (추가)
+        handleTicketInformation(musical, responseDto);
 
-        List<MusicalTicketOfficeDto> ticketOfficeDtos = allByMusicalTicketOffice
-                .stream()
-                .map(ticketOffice -> modelMapper.map(ticketOffice, MusicalTicketOfficeDto.class))
-                .toList();
-        responseDto.setTicketOffices(ticketOfficeDtos);
         log.info("응답데이터 save파일 네임 = {}", responseDto.getSaveImageName());
         log.info("응답데이터 imageUrl = {}", responseDto.getImageUrl());
 
@@ -424,4 +414,89 @@ public class DefaultMusicalService implements MusicalService {
         musical.changeStatus();
     }
 
+    /**
+     * 이미지 처리 로직
+     */
+    private void handleMusicalImages(Musical musical, MusicalResponseDto musicalResponseDto) {
+        if(musical.getDataSource() == DataSource.KOPIS_API) {
+            musicalResponseDto.setImageUrl(musical.getKopisPoster());
+            musicalResponseDto.setSaveImageName(musical.getFileSavedName());
+
+            // 상세 이미지 처리
+            if(musical.getKopisStyurls() != null && !musical.getKopisStyurls().trim().isEmpty()) {
+                String[] imageUrls = musical.getKopisStyurls().split(",");
+                List<String> imageList = Arrays.asList(imageUrls);
+                musicalResponseDto.setMusicalImages(imageList);
+                log.info("뮤지컬 상세 이미지 설정 완료: {}개", imageList.size());
+            } else {
+                log.info("상세 이미지 없음");
+            }
+        } else {
+            musicalResponseDto.setSaveImageName(musical.getFileSavedName());
+        }
+    }
+
+    /**
+     * 데이터 소수에 따라 티켓 정보 다르게 처리
+     */
+    private void handleTicketInformation(Musical musical, MusicalResponseDto responseDto) {
+        if(musical.getDataSource() == DataSource.KOPIS_API) {
+            handleKopisTicketData(musical, responseDto);
+        }
+    }
+
+    /**
+     * KOPIS 티켓 데이터 처리
+     */
+    private void handleKopisTicketData(Musical musical, MusicalResponseDto responseDto) {
+        // 티켓 가격 파싱
+        List<MusicalTicketPriceDto> ticketPriceDtos = parseKopisTicketPrices(musical.getKopisPcseguidance());
+        responseDto.setTicketPrices(ticketPriceDtos);
+    }
+
+    /**
+     * KOPIS 티켓 가격 문자열 파싱
+     * 예: "R석 80,000원, VIP석 150,000원" -> ConcertTicketPriceDto 리스트
+     */
+    private List<MusicalTicketPriceDto> parseKopisTicketPrices(String ticketPriceStr) {
+        List<MusicalTicketPriceDto> ticketPrices = new ArrayList<>();
+
+        if (ticketPriceStr == null || ticketPriceStr.trim().isEmpty()) {
+            return ticketPrices;
+        }
+
+        log.debug("=== 티켓 가격 파싱 시작 ===");
+        log.debug("원본 문자열: [{}]", ticketPriceStr);
+
+        try {
+            // 천단위 쉼표가 포함된 가격을 추출
+            Pattern pattern = Pattern.compile("([A-Za-z가-힣]+석?)\\s*([0-9,]+원?)");
+            Matcher matcher = pattern.matcher(ticketPriceStr);
+
+            while(matcher.find()) {
+                String seatGrade = matcher.group(1).trim();
+                String priceStr = matcher.group(2);
+
+                if(!priceStr.endsWith("원")) {
+                    priceStr += "원";
+                }
+
+                log.debug("매칭된 그룹: 좌석등급=[{}], 가격문자열=[{}]", seatGrade, priceStr);
+
+                MusicalTicketPriceDto dto = new MusicalTicketPriceDto();
+                dto.setSeat(seatGrade);
+                dto.setPrice(priceStr);
+                ticketPrices.add(dto);
+
+                log.info("파싱 성공: {}석 {}원", seatGrade, priceStr);
+            }
+
+            log.info("=== 파싱 완료: 총 {}개 좌석 등급 ===", ticketPrices.size());
+
+        } catch (Exception e) {
+            log.error("티켓 가격 파싱 중 오류: {}", e.getMessage(), e);
+        }
+
+        return ticketPrices;
+    }
 }

@@ -17,6 +17,7 @@ public class SyncResult {
   private int totalProcessed;
   private int successCount;
   private int failureCount;
+  private int skippedCount;
   private int newItemCount;
   private int updatedItemCount;
   private int skippedItemCount;
@@ -60,6 +61,7 @@ public class SyncResult {
    */
   public void addSkipped(String reason) {
     this.skippedItemCount++;
+    this.skippedCount++;
     this.totalProcessed++;
     if (reason != null) {
       this.warningMessages.add("건너뜀: " + reason);

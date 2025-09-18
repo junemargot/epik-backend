@@ -178,7 +178,7 @@ public class KopisDataSyncService {
             if (existingConcert.isPresent()) {
                 // 기존 데이터 업데이트
                 concert = existingConcert.get();
-                concert.updateFromKopisData(enhancedDto);
+//                concert.updateFromKopisData(enhancedDto);
 
                 // 상세 정보가 있으면 추가 업데이트
                 if (hasDetailInfo(enhancedDto)) {
@@ -333,19 +333,50 @@ public class KopisDataSyncService {
     private void syncSingleMusical(KopisPerformanceDto dto, Member systemMember,
                                    Region defaultRegion, SyncResult result) {
 
-        Optional<Musical> existingMusical = musicalRepository.findByKopisId(dto.getMt20id());
+        try {
+            // 1. 상세 정보 추가 조회
+            String detailXml = kopisApiService.getPerformanceDetail(dto.getMt20id());
+            if (detailXml != null) {
+                List<KopisPerformanceDto> detailList = parseXmlToPerformanceList(detailXml);
+                if (!detailList.isEmpty()) {
+                    KopisPerformanceDto detailDto = detailList.get(0);
+                    // 상세 정보를 기본 정보에 병합
+                    mergeDetailInfo(dto, detailDto);
+                }
+            }
 
-        if (existingMusical.isPresent()) {
-            Musical musical = existingMusical.get();
-            musical.updateFromKopisData(dto);
+            // 2. 기존 정보로 엔티티 생성/업데이트
+            Optional<Musical> existingMusical = musicalRepository.findByKopisId(dto.getMt20id());
+
+            Musical musical;
+            if (existingMusical.isPresent()) {
+                musical = existingMusical.get();
+                musical.updateFromKopisData(dto);
+                if (hasDetailData(dto)) {
+                    log.debug("상세 정보 발견됨, updateFromKopisDetailData 호출: {}", musical.getTitle());
+                    musical.updateFromKopisDetailData(dto);
+                    log.debug("상세 정보 업데이트 완료: {}", musical.getTitle());
+                } else {
+                    log.debug("상세 정보 없음: {}", musical.getTitle());
+                }
+                result.addSuccess(false); // 업데이트
+
+            } else {
+                musical = Musical.fromKopisData(dto, defaultRegion, systemMember);
+                if (hasDetailData(dto)) {
+                    log.debug("신규 생성 시 상세 정보 발견됨, updateFromKopisDetailData 호출: {}", musical.getTitle());
+                    musical.updateFromKopisDetailData(dto);
+                    log.debug("신규 생성 시 상세 정보 적용: {}", musical.getTitle());
+                } else {
+                    log.debug("신규 생성 시 상세 정보 없음: {}", musical.getTitle());
+                }
+                result.addSuccess(true); // 신규생성
+            }
+
             musicalRepository.save(musical);
-            result.addSuccess(false); // 업데이트
-            log.debug("뮤지컬 업데이트: {}", dto.getPrfnm());
-        } else {
-            Musical newMusical = Musical.fromKopisData(dto, defaultRegion, systemMember);
-            musicalRepository.save(newMusical);
-            result.addSuccess(true); // 신규 생성
-            log.debug("새 뮤지컬 생성: {}", dto.getPrfnm());
+        } catch (Exception e) {
+            log.error("공연 상세 정보 처리 실패: {}", dto.getMt20id(), e.getMessage());
+            result.addFailure("공연 ID " + dto.getMt20id() + "처리 실패: " + e.getMessage());
         }
     }
 
@@ -442,19 +473,13 @@ public class KopisDataSyncService {
             dto.setPoster(extractXmlValue(xmlContent, "poster"));
             dto.setArea(extractXmlValue(xmlContent, "area"));
             dto.setGenrenm(extractXmlValue(xmlContent, "genrenm"));
-            dto.setOpenrun(extractXmlValue(xmlContent, "openrun"));
+//            dto.setOpenrun(extractXmlValue(xmlContent, "openrun"));
             dto.setPrfstate(extractXmlValue(xmlContent, "prfstate"));
 
             dto.setPrftime(extractXmlValue(xmlContent, "prftime"));
             dto.setPcseguidance(extractXmlValue(xmlContent, "pcseguidance"));
             dto.setDtguidance(extractXmlValue(xmlContent, "dtguidance"));
             dto.setStyurls(extractXmlValue(xmlContent, "styurls"));
-            dto.setEntrpsnmP(extractXmlValue(xmlContent, "entrpsnmP"));
-            dto.setEntrpsnmA(extractXmlValue(xmlContent, "entrpsnmA"));
-            dto.setEntrpsnmH(extractXmlValue(xmlContent, "entrpsnmH"));
-            dto.setEntrpsnmS(extractXmlValue(xmlContent, "entrpsnmS"));
-            dto.setPrfcast(extractXmlValue(xmlContent, "prfcast"));
-            dto.setPrfcrew(extractXmlValue(xmlContent, "prfcrew"));
             dto.setPrfruntime(extractXmlValue(xmlContent, "prfruntime"));
             dto.setPrfage(extractXmlValue(xmlContent, "prfage"));
 
@@ -655,9 +680,6 @@ public class KopisDataSyncService {
         if (isValidString(detailDto.getPcseguidance())) {
             basicDto.setPcseguidance(removeEmojis(detailDto.getPcseguidance()));
         }
-        if (isValidString(detailDto.getEntrpsnmS())) {
-            basicDto.setEntrpsnmS(removeEmojis(detailDto.getEntrpsnmS()));
-        }
 
         // 누락된 중요 필드들 추가
         if (isValidString(detailDto.getDtguidance())) {
@@ -666,26 +688,11 @@ public class KopisDataSyncService {
         if (isValidString(detailDto.getStyurls())) {
             basicDto.setStyurls(removeEmojis(detailDto.getStyurls()));
         }
-        if (isValidString(detailDto.getPrfcast())) {
-            basicDto.setPrfcast(removeEmojis(detailDto.getPrfcast()));
-        }
-        if (isValidString(detailDto.getPrfcrew())) {
-            basicDto.setPrfcrew(removeEmojis(detailDto.getPrfcrew()));
-        }
         if (isValidString(detailDto.getPrfruntime())) {
             basicDto.setPrfruntime(removeEmojis(detailDto.getPrfruntime()));
         }
         if (isValidString(detailDto.getPrfage())) {
             basicDto.setPrfage(removeEmojis(detailDto.getPrfage()));
-        }
-        if (isValidString(detailDto.getEntrpsnmP())) {
-            basicDto.setEntrpsnmP(removeEmojis(detailDto.getEntrpsnmP()));
-        }
-        if (isValidString(detailDto.getEntrpsnmA())) {
-            basicDto.setEntrpsnmA(removeEmojis(detailDto.getEntrpsnmA()));
-        }
-        if (isValidString(detailDto.getEntrpsnmH())) {
-            basicDto.setEntrpsnmH(removeEmojis(detailDto.getEntrpsnmH()));
         }
 
         log.debug("상세 정보 병합 완료 - 총 12개 필드 처리");
@@ -698,9 +705,7 @@ public class KopisDataSyncService {
         return isValidString(dto.getPrftime()) ||
                 isValidString(dto.getPcseguidance()) ||
                 isValidString(dto.getDtguidance()) ||
-                isValidString(dto.getStyurls()) ||
-                isValidString(dto.getPrfcast()) ||
-                isValidString(dto.getEntrpsnmS());
+                isValidString(dto.getStyurls());
     }
 
     /**
@@ -753,37 +758,12 @@ public class KopisDataSyncService {
             mergedDto.setStyurls(detailDto.getStyurls());
         }
 
-        if (isValidString(detailDto.getPrfcast())) {
-            mergedDto.setPrfcast(detailDto.getPrfcast());
-        }
-
-        if (isValidString(detailDto.getPrfcrew())) {
-            mergedDto.setPrfcrew(detailDto.getPrfcrew());
-        }
-
         if (isValidString(detailDto.getPrfruntime())) {
             mergedDto.setPrfruntime(detailDto.getPrfruntime());
         }
 
         if (isValidString(detailDto.getPrfage())) {
             mergedDto.setPrfage(detailDto.getPrfage());
-        }
-
-        // 기업 정보 병합
-        if (isValidString(detailDto.getEntrpsnmP())) {
-            mergedDto.setEntrpsnmP(detailDto.getEntrpsnmP());
-        }
-
-        if (isValidString(detailDto.getEntrpsnmA())) {
-            mergedDto.setEntrpsnmA(detailDto.getEntrpsnmA());
-        }
-
-        if (isValidString(detailDto.getEntrpsnmH())) {
-            mergedDto.setEntrpsnmH(detailDto.getEntrpsnmH());
-        }
-
-        if (isValidString(detailDto.getEntrpsnmS())) {
-            mergedDto.setEntrpsnmS(detailDto.getEntrpsnmS());
         }
 
         log.debug("정보 병합 완료: 기본+상세 데이터 결합");
@@ -804,7 +784,6 @@ public class KopisDataSyncService {
         copy.setPoster(source.getPoster());
         copy.setArea(source.getArea());
         copy.setGenrenm(source.getGenrenm());
-        copy.setOpenrun(source.getOpenrun());
         copy.setPrfstate(source.getPrfstate());
 
         return copy;
@@ -841,11 +820,7 @@ public class KopisDataSyncService {
         return isValidString(dto.getPrftime()) ||
                 isValidString(dto.getPcseguidance()) ||
                 isValidString(dto.getDtguidance()) ||
-                isValidString(dto.getStyurls()) ||
-                isValidString(dto.getPrfcast()) ||
-                isValidString(dto.getPrfcrew()) ||
-                isValidString(dto.getEntrpsnmP()) ||
-                isValidString(dto.getEntrpsnmS());
+                isValidString(dto.getStyurls());
     }
 
     /**
