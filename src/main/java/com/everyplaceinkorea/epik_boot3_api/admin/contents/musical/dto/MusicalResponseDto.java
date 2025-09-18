@@ -31,6 +31,9 @@ public class MusicalResponseDto {
     private LocalDateTime writeDate; // 등록일
     private DataSource dataSource;  // 데이터 출처
 
+    private List<String> musicalImages; // KOPIS 상세 이미지들
+    private String kopisPcseguidance;   // KOPIS 티켓 가격 정보
+
     // 이미지 URL 동적 생성
     public String getImageUrl() {
         if(dataSource == DataSource.KOPIS_API) {
