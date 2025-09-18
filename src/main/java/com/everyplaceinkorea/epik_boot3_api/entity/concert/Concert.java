@@ -141,7 +141,6 @@ public class Concert {
     concert.setKopisId(dto.getMt20id());
     concert.setKopisPrfnm(dto.getPrfnm());
     log.info("kopisPrfnm 설정됨: [{}]", concert.getKopisPrfnm());
-    
     concert.setKopisFcltynm(dto.getFcltynm());
     concert.setKopisGenrenm(dto.getGenrenm());
     concert.setKopisPrfstate(dto.getPrfstate());
@@ -152,7 +151,7 @@ public class Concert {
     log.info("cleanKopisTitle 호출 전: [{}]", dto.getPrfnm());
     String cleanTitle = cleanKopisTitle(dto.getPrfnm());
     log.info("cleanKopisTitle 호출 후: [{}]", cleanTitle);
-    
+
     // 조건 없이 무조건 설정 (HTML 엔티티 디코딩 보장)
     if (cleanTitle != null && !cleanTitle.trim().isEmpty()) {
         concert.setTitle(cleanTitle);
@@ -212,7 +211,7 @@ public class Concert {
     // KOPIS 원본 데이터 업데이트
     this.kopisPrfnm = dto.getPrfnm();
     log.info("kopisPrfnm 설정: [{}]", this.kopisPrfnm);
-    
+
     this.kopisFcltynm = dto.getFcltynm();
     this.kopisGenrenm = dto.getGenrenm();
     this.kopisPrfstate = dto.getPrfstate();
@@ -226,7 +225,7 @@ public class Concert {
     log.info("cleanKopisTitle 호출 전 - DTO.getPrfnm(): [{}]", dto.getPrfnm());
     String newTitle = cleanKopisTitle(dto.getPrfnm());
     log.info("cleanKopisTitle 호출 후 - newTitle: [{}]", newTitle);
-    
+
     // 조건 없이 무조건 설정 (HTML 엔티티 디코딩 보장)
     if (newTitle != null && !newTitle.trim().isEmpty()) {
         this.title = newTitle;
@@ -278,10 +277,10 @@ public class Concert {
     }
 
     // 추가 필드 업데이트
-    this.runningTime = dto.getOpenrun() != null && dto.getOpenrun().equals("Y") ? "오픈런" : this.runningTime;
-    if (this.ageRestriction == null) {
-      this.ageRestriction = "전체 관람가";
-    }
+//    this.runningTime = dto.getOpenrun() != null && dto.getOpenrun().equals("Y") ? "오픈런" : this.runningTime;
+//    if (this.ageRestriction == null) {
+//      this.ageRestriction = "전체 관람가";
+//    }
 
   }
 
