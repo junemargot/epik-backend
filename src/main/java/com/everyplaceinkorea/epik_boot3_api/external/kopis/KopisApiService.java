@@ -126,4 +126,59 @@ public class KopisApiService {
             throw new RuntimeException("KOPIS 상세정보 조회 실패", e);
         }
     }
+
+  /**
+   * KOPIS 공연시설 API 연동
+   * 1. 공연시설목록 조회로 시설명 -> 시설 ID 매핑
+   * 2. 공연시설상세 조회로 시설 ID -> 상세주소 조회
+   */
+  public String getFacilityList(int cPage, int rows) {
+    try {
+      log.info("KOPIS 공연시설목록 조회 - 페이지: {}", cPage);
+
+      String response = webClient.get()
+              .uri(uriBuilder -> uriBuilder
+                      .path("/prfplc")
+                      .queryParam("service", kopisApiConfig.getApi().getKey())
+                      .queryParam("cpage", cPage)
+                      .queryParam("rows", rows)
+                      .build())
+              .retrieve()
+              .bodyToMono(String.class)
+              .timeout(Duration.ofMillis(kopisApiConfig.getApi().getTimeout()))
+              .block();
+
+      log.debug("공연 시설 목록 응답 길이: {}", response != null ? response.length() : 0);
+      return response;
+    } catch(Exception e) {
+      log.error("KOPIS 공연시설목록 조회 실패: {}", e.getMessage());
+      throw new RuntimeException("KOPIS 공연시설목록조회 실패", e);
+    }
+  }
+
+  /**
+   * 공연시설상세조회
+   * URL: http://www.kopis.or.kr/openApi/restful/prfplc/{시설ID}
+   */
+  public String getFacilityDetail(String facilityId) {
+    try {
+      log.info("KOPIS 공연시설상세조회 - 시설ID: {}", facilityId);
+
+      String response = webClient.get()
+              .uri(uriBuilder -> uriBuilder
+                      .path("/prfplc/{facilityId}")  // 공연시설상세조회 API
+                      .queryParam("service", kopisApiConfig.getApi().getKey())
+                      .build(facilityId))
+              .retrieve()
+              .bodyToMono(String.class)
+              .timeout(Duration.ofMillis(kopisApiConfig.getApi().getTimeout()))
+              .block();
+
+      log.debug("공연시설상세 응답 길이: {}", response != null ? response.length() : 0);
+      return response;
+    } catch(Exception e) {
+      log.error("KOPIS 공연시설상세조회 실패 - 시설ID: {}, 에러: {}", facilityId, e.getMessage());
+      return null; // 실패해도 계속 진행
+    }
+  }
 }
