@@ -64,21 +64,18 @@ public class Concert {
   @Column(name = "file_path")
   private String filePath;
 
-  @Column(name = "youtube_url")
-  private String youtubeUrl;
-
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "member_id")
   private Member member;
-
-  @Enumerated(EnumType.STRING)
-  private Status status = Status.ACTIVE;
 
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "region_id")
   private Region region;
 
-  // KOPIS API 관련 필드
+  @Enumerated(EnumType.STRING)
+  private Status status = Status.ACTIVE;
+
+  // KOPIS 관련 필드
   @Enumerated(EnumType.STRING)
   @Column(name = "data_source")
   private DataSource dataSource = DataSource.MANUAL;
@@ -86,21 +83,20 @@ public class Concert {
   @Column(name = "last_synced")
   private LocalDateTime lastSynced;  // 마지막 동기화 시간
 
-  // KOPIS 원본 데이터
   @Column(name = "kopis_id", unique = true)
   private String kopisId;
 
   @Column(name = "kopis_prfnm")
   private String kopisPrfnm; // KOPIS 공연명
 
-  @Column(name = "kopis_fcltynm")
-  private String kopisFcltynm; // KOPIS 공연장명
-
   @Column(name = "kopis_prfstate")
   private String kopisPrfstate; // KOPIS 공연상태
 
   @Column(name = "kopis_genrenm")
   private String kopisGenrenm; // KOPIS 장르명
+
+  @Column(name = "kopis_fcltynm")
+  private String kopisFcltynm; // KOPIS 공연장명
 
   @Column(name = "kopis_area")
   private String kopisArea; // KOPIS 지역 정보
@@ -123,67 +119,17 @@ public class Concert {
    * KOPIS 데이터로부터 Concert 엔티티 생성
    */
   public static Concert fromKopisData(KopisPerformanceDto dto, Region region, Member member) {
-    log.info("=== fromKopisData 호출됨 ===");
-    log.info("DTO 제목: [{}]", dto.getPrfnm());
-    
+    log.info("=== Concert.fromKopisData 호출됨 - 제목: [{}] ===", dto.getPrfnm());
+
     Concert concert = new Concert();
-    concert.setKopisId(dto.getMt20id());
-    concert.setKopisPrfnm(dto.getPrfnm());
-    concert.setKopisFcltynm(dto.getFcltynm());
-    concert.setKopisGenrenm(dto.getGenrenm());
-    concert.setKopisPrfstate(dto.getPrfstate());
-    concert.setKopisArea(dto.getArea());
-    concert.setKopisPoster(dto.getPoster());
 
-    // 제목 매핑
-    log.info("cleanKopisTitle 호출 전: [{}]", dto.getPrfnm());
-    String cleanTitle = cleanKopisTitle(dto.getPrfnm());
-    log.info("cleanKopisTitle 호출 후: [{}]", cleanTitle);
+    setKopisOriginalData(concert, dto);
+    setBasicInformation(concert, dto);
+    setDateInformation(concert, dto);
+    setMetadataAndRelations(concert, region, member);
+    setAdditionalInformation(concert, dto);
 
-    // 조건 없이 무조건 설정 (HTML 엔티티 디코딩 보장)
-    if (cleanTitle != null && !cleanTitle.trim().isEmpty()) {
-        concert.setTitle(cleanTitle);
-    } else if (dto.getPrfnm() != null) {
-        // cleanTitle이 비어있으면 원본을 직접 디코딩해서 사용
-        String decodedOriginal = dto.getPrfnm()
-            .replace("&amp;", "&")
-            .replace("&lt;", "<")
-            .replace("&gt;", ">")
-            .replace("&quot;", "\"")
-            .replace("&#39;", "'");
-        concert.setTitle(decodedOriginal);
-    } else {
-        concert.setTitle("제목 없음");
-    }
-    log.info("최종 title 설정: [{}]", concert.getTitle());
-
-    // 공연장명 매핑
-    concert.setVenue(isValidString(dto.getFcltynm()) ? dto.getFcltynm() : "공연장 정보 없음");
-    // 주소 매핑
-    concert.setAddress(buildDetailedAddress(dto.getArea(), dto.getFcltynm()));
-    // 내용 생성
-    concert.setContent(generateContent(dto));
-    // 날짜 매핑
-    concert.setStartDate(parseKopisDateSafely(dto.getPrfpdfrom()));
-    concert.setEndDate(parseKopisDateSafely(dto.getPrfpdto()));
-    // 메타데이터 설정
-    concert.setDataSource(DataSource.KOPIS_API);
-    concert.setLastSynced(LocalDateTime.now());
-    concert.setRegion(region);
-    concert.setMember(member);
-    concert.setStatus(Status.ACTIVE);
-    concert.setViewCount(0);
-    concert.setDetailImages(dto.getStyurls());
-    // 이미지 매핑
-    setupImageData(concert, dto);
-    // 추가 필드 설정
-    concert.setRunningTime(determineRunningTime(dto));
-    concert.setAgeRestriction(dto.getPrfage());
-
-    System.out.println("=== fromKopisData 상세 이미지 확인 ===");
-    System.out.println("styurls: " + dto.getStyurls());
-    System.out.println("===================");
-
+    log.info("=== Concert 생성 완료: title=[{}] ===", dto.getPrfnm());
 
     return concert;
   }
@@ -198,8 +144,6 @@ public class Concert {
 
     // KOPIS 원본 데이터 업데이트
     this.kopisPrfnm = dto.getPrfnm();
-    log.info("kopisPrfnm 설정: [{}]", this.kopisPrfnm);
-
     this.kopisFcltynm = dto.getFcltynm();
     this.kopisGenrenm = dto.getGenrenm();
     this.kopisPrfstate = dto.getPrfstate();
@@ -210,59 +154,29 @@ public class Concert {
     this.setAgeRestriction(dto.getPrfage());
 
     // 가공된 데이터 업데이트
-    log.info("cleanKopisTitle 호출 전 - DTO.getPrfnm(): [{}]", dto.getPrfnm());
-    String newTitle = cleanKopisTitle(dto.getPrfnm());
-    log.info("cleanKopisTitle 호출 후 - newTitle: [{}]", newTitle);
+    this.title = cleanKopisTitle(dto.getPrfnm());
+    this.venue = dto.getFcltynm();
+    this.content = generateContent(dto);
 
-    // 조건 없이 무조건 설정 (HTML 엔티티 디코딩 보장)
-    if (newTitle != null && !newTitle.trim().isEmpty()) {
-        this.title = newTitle;
-    } else if (dto.getPrfnm() != null) {
-        // cleanTitle이 비어있으면 원본을 직접 디코딩해서 사용
-        String decodedOriginal = dto.getPrfnm()
-            .replace("&amp;", "&")
-            .replace("&lt;", "<")
-            .replace("&gt;", ">")
-            .replace("&quot;", "\"")
-            .replace("&#39;", "'");
-        this.title = decodedOriginal;
-    }
-    log.info("title 설정 완료: [{}]", this.title);
-
-    if(isValidString(dto.getFcltynm())) {
-      this.venue = dto.getFcltynm();
-//      this.address = buildDetailedAddress(dto.getArea(), dto.getFcltynm());
-    }
-
-    // 컨텐츠 업데이트
-    if(this.dataSource == DataSource.KOPIS_API) {
-      this.content = generateContent(dto);
-    }
 
     // 날짜 업데이트
-    LocalDate newStartDate = parseKopisDateSafely(dto.getPrfpdfrom());
-    LocalDate newEndDate = parseKopisDateSafely(dto.getPrfpdto());
-    if(newStartDate != null) this.startDate = newStartDate;
-    if(newEndDate != null) this.endDate = newEndDate;
+    this.startDate = parseKopisDateSafely(dto.getPrfpdfrom()) != null
+            ? parseKopisDateSafely(dto.getPrfpdfrom())
+            : this.startDate; // 기존 값 유지
+    this.endDate = parseKopisDateSafely(dto.getPrfpdto()) != null
+            ? parseKopisDateSafely(dto.getPrfpdto())
+            : this.endDate; // 기존 값 유지
 
     // 동기화 시간 갱신
     this.lastSynced = LocalDateTime.now();
-
-    // 이미지 업데이트
-    this.setDetailImages(dto.getStyurls());
-    setupImageData(this, dto);
-    // Concert.fromKopisData 또는 updateFromKopisData 메소드에 추가
-    System.out.println("=== updateFromKopisData 상세 이미지 확인 ===");
-    System.out.println("styurls: " + dto.getStyurls());
-    System.out.println("===================");
-
-    log.debug("Concert 업데이트 완료: title={}, venue={}", this.title, this.venue);
 
     // KOPIS 포스터를 기존 이미지 시스템에 연결
     if (dto.getPoster() != null && !dto.getPoster().trim().isEmpty()) {
       this.filePath = dto.getPoster();
       this.fileSavedName = extractFileNameFromUrl(dto.getPoster());
     }
+
+    log.debug("Concert 업데이트 완료: title={}, venue={}", this.title, this.venue);
   }
 
   /**
@@ -340,5 +254,73 @@ public class Concert {
   // 문자열 유효성 검사
   private static boolean isValidString(String str) {
     return KopisDataUtils.isValidString(str);
+  }
+
+  /**
+   * 1. KOPIS 원본 데이터 저장
+   */
+  private static void setKopisOriginalData(Concert concert, KopisPerformanceDto dto) {
+    concert.setKopisId(dto.getMt20id());
+    concert.setKopisPrfnm(dto.getPrfnm());
+    concert.setKopisFcltynm(dto.getFcltynm());
+    concert.setKopisGenrenm(dto.getGenrenm());
+    concert.setKopisPrfstate(dto.getPrfstate());
+    concert.setAgeRestriction(dto.getPrfage());
+    concert.setKopisArea(dto.getArea());
+    concert.setKopisPoster(dto.getPoster());
+
+    log.debug("KOPIS 원본 데이터 설정 완료: ID=[{}]", dto.getMt20id());
+  }
+
+  /**
+   * 2. 핵심 정보 매핑 (제목, 공연장, 주소, 내용)
+   */
+  private static void setBasicInformation(Concert concert, KopisPerformanceDto dto) {
+    String cleanTitle = cleanKopisTitle(dto.getPrfnm());
+    concert.setTitle(KopisDataUtils.normalizeTitle(cleanTitle));
+
+    concert.setVenue(isValidString(dto.getFcltynm()) ? dto.getFcltynm() : "공연장 정보 없음");
+    concert.setAddress(buildDetailedAddress(dto.getArea(), dto.getFcltynm()));
+    concert.setContent(generateContent(dto));
+    log.debug("기본 정보 설정 완료: title=[{}], venue=[{}]", concert.getTitle(), concert.getVenue());
+  }
+
+  /**
+   * 3. 날짜 정보 설정
+   */
+  private static void setDateInformation(Concert concert, KopisPerformanceDto dto) {
+    concert.setStartDate(KopisDataUtils.parseDate(dto.getPrfpdfrom()));
+    concert.setEndDate(KopisDataUtils.parseDate(dto.getPrfpdto()));
+
+    log.debug("날짜 정보 설정 완료: {} ~ {}", concert.getStartDate(), concert.getEndDate());
+  }
+
+  /**
+   * 4. 메타데이터 및 관계 설정
+   */
+  private static void setMetadataAndRelations(Concert concert, Region region, Member member) {
+    concert.setDataSource(DataSource.KOPIS_API);
+    concert.setLastSynced(LocalDateTime.now());
+    concert.setRegion(region);
+    concert.setMember(member);
+    concert.setStatus(Status.ACTIVE);
+    concert.setViewCount(0);
+
+    log.debug("메타데이터 설정 완료: region=[{}], member=[{}]",
+            region != null ? region.getId() : null,
+            member != null ? member.getId() : null);
+  }
+
+  /**
+   * 5. 이미지 및 부가 정보 설정
+   */
+  private static void setAdditionalInformation(Concert concert, KopisPerformanceDto dto) {
+    concert.setDetailImages(dto.getStyurls());
+    concert.setTicketPrice(dto.getPcseguidance());
+    setupImageData(concert, dto);
+
+    concert.setRunningTime(determineRunningTime(dto));
+
+    log.debug("부가 정보 설정 완료: runningTime=[{}]", concert.getRunningTime());
   }
 }
