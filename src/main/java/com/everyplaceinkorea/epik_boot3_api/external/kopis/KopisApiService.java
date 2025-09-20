@@ -19,6 +19,9 @@ public class KopisApiService {
         this.kopisApiConfig = kopisApiConfig;
         this.webClient = WebClient.builder()
                 .baseUrl(kopisApiConfig.getApi().getBaseUrl())
+                .defaultHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .defaultHeader("Accept", "application/xml, text/xml, */*")
+                .defaultHeader("Accept-Language", "ko-KR,ko;q=0.9,en;q=0.8")
                 .build();
     }
 
