@@ -245,6 +245,10 @@ public class KopisDataSyncService {
                                         performance.getMt20id(), e.getMessage()));
                             }
                         }
+
+                        if(performances.size() < 100) {
+                            hasMoreData = false;
+                        }
                         page++;
 
                         if (page > 50) {
