@@ -82,7 +82,7 @@ jobs:
             const systemInstructions = "Always think in English, speak in Korean. Follow the CLAUDE.md guidelines in this repository. Always run Maven-based commands instead of npm (use ./mvnw). Focus on Spring Boot best practices, JPA/Hibernate usage, and security considerations.";
             const userPrompt = "Please review this Spring Boot Java pull request and provide feedback in Korean on:\n- Code quality and best practices\n- Potential bugs or issues\n- Performance considerations\n- Security concerns\n- Test coverage\n\nBe constructive and helpful in your feedback.\n\nHere are the changes:\n" + contextContent;
             const message = await anthropic.messages.create({
-              model: 'claude-sonnet-4-20250514',
+              model: 'claude-3-5-sonnet-20241022' // 안정 버전 시도
               max_tokens: 4000,
               messages: [
                 {
@@ -126,5 +126,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `## 🤖 Claude 코드 리뷰\n\n${reviewOutput}`
+              body: `## 🤖 Claude 코드 리뷰\n\n${reviewContent}`
             });
