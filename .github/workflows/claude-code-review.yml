@@ -23,7 +23,7 @@ jobs:
         id: claude-review
         uses: anthropics/claude-code-action@beta
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           direct_prompt: |
             Review the PR changes in Korean. Focus on code quality and best practices, potential bugs or issues, and adherence to project standards and performance considerations. Suggest improvements and provide a detailed explanation.
 
