@@ -1,0 +1,88 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - "src/**/*.java"
+      - "src/**/*.yml"
+      - "src/**/*.yaml"
+      - "src/**/*.properties"
+      - "src/**/*.xml"
+      - "src/**/*.sql"
+      - "pom.xml"
+
+jobs:
+  claude-review:
+    # WIP나 skip-review 태그가 있으면 건너뛰기
+    if: |
+      !contains(github.event.pull_request.title, '[skip-review]') &&
+      !contains(github.event.pull_request.title, '[WIP]') &&
+      !contains(github.event.pull_request.title, 'WIP:')
+    
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # 선택사항: 더 강력한 모델 사용 (필요시 주석 해제)
+          # model: "claude-opus-4-1-20250805"
+          
+          direct_prompt: |
+            Please review this Spring Boot/Java pull request focusing on:
+            **Java Code Quality:**
+            - Code structure and design patterns (특히 Spring patterns)
+            - Proper use of Spring annotations (@Service, @Controller, @Repository 등)
+            - Exception handling and error management
+            - Code readability and maintainability
+          
+            **Spring Framework Best Practices:**
+            - Dependency injection usage
+            - Bean configuration and lifecycle
+            - Transaction management (@Transactional 사용)
+            - Security considerations (Spring Security 관련)
+            
+            **Performance & Optimization:**
+            - Database query optimization (JPA/Hibernate 쿼리)
+            - Caching strategies
+            - Memory usage and potential leaks
+            - API response time considerations
+            
+            **Configuration & Deployment:**
+            - Application properties/yml configuration
+            - Docker configuration (if present)
+            - Maven/Gradle dependency management
+            - Environment-specific settings
+            
+            **Testing:**
+            - Unit test coverage and quality
+            - Integration test completeness
+            - Mock usage and test isolation
+            - Test naming conventions
+            
+            **Security:**
+            - Input validation and sanitization
+            - Authentication and authorization
+            - SQL injection prevention
+            - Sensitive data handling
+            
+            Be constructive and provide specific suggestions for improvement. 
+            Include code examples where helpful.
+
+          use_sticky_comment: true
+          
+          # Claude가 필요시 실행할 수 있는 도구들 (Maven 프로젝트용)
+          allowed_tools: "Bash(./mvnw test),Bash(./mvnw compile),Bash(./mvnw clean compile)"
