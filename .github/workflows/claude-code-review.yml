@@ -4,13 +4,13 @@ on:
   pull_request:
     types: [opened, synchronize]
     paths:
-      - "src/**/*.java"           # 모든 자바 파일
-      - "src/**/*.yml"            # YAML 설정 파일 (application.yml 등)
-      - "src/**/*.yaml"           # YAML 설정 파일
-      - "src/**/*.properties"     # Properties 파일
-      - "src/**/*.xml"            # XML 설정 파일
-      - "src/**/*.sql"            # SQL 파일들
-      - "pom.xml"                 # Maven 설정
+      - "src/**/*.java"
+      - "src/**/*.yml"
+      - "src/**/*.yaml"
+      - "src/**/*.properties"
+      - "src/**/*.xml"
+      - "src/**/*.sql"
+      - "pom.xml"
 
 jobs:
   claude-review:
@@ -23,15 +23,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write      # 댓글 작성을 위해 write 필요!
-      issues: write             # PR 댓글 작성을 위해 write 필요!
+      pull-requests: write
+      issues: write
       id-token: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1         # 빠른 체크아웃을 위해 1로 변경
+          fetch-depth: 1
 
       - name: Run Claude Code Review
         id: claude-review

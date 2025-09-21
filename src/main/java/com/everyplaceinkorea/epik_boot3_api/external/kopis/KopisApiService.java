@@ -26,7 +26,7 @@ public class KopisApiService {
     }
 
     /**
-     * 공연 목록 조회 - Blocking 방식
+     * 공연 목록 조회
      * @param stDate
      * @param edDate
      * @param cPage
