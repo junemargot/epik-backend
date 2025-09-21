@@ -3,14 +3,17 @@ name: Claude Code Review
 on:
   pull_request:
     types: [opened, synchronize]
+  workflow_dispatch:  # 수동 실행 가능하게 추가
     paths:
-      - "src/**/*.java"
-      - "src/**/*.yml"
-      - "src/**/*.yaml"
-      - "src/**/*.properties"
-      - "src/**/*.xml"
-      - "src/**/*.sql"
-      - "pom.xml"
+      - "src/**/*.java"           # 모든 자바 파일
+      - "src/**/*.yml"            # YAML 설정 파일 (application.yml 등)
+      - "src/**/*.yaml"           # YAML 설정 파일
+      - "src/**/*.properties"     # Properties 파일
+      - "src/**/*.xml"            # XML 설정 파일
+      - "src/**/*.sql"            # SQL 파일들
+      - "pom.xml"                 # Maven 설정
+      - "Dockerfile"              # Docker 설정
+      - "docker-compose.yml"      # Docker Compose 설정
 
 jobs:
   claude-review:
@@ -23,66 +26,46 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
-      issues: write
+      pull-requests: write      # 댓글 작성을 위해 write 필요!
+      issues: write            # PR 댓글 작성을 위해 write 필요!
       id-token: write
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0         # diff 비교를 위해 히스토리 필요
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
 
       - name: Run Claude Code Review
-        id: claude-review
-        uses: anthropics/claude-code-action@beta
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude-code review \
+            --diff \
+            --base origin/${{ github.event.pull_request.base.ref }} \
+            --context "Spring Boot Java project with JPA/Hibernate" \
+            --focus "security,performance,best-practices" \
+            --format github \
+            > review-output.md
+          
+      - name: Comment on PR
+        uses: actions/github-script@v7
         with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # 선택사항: 더 강력한 모델 사용 (필요시 주석 해제)
-          # model: "claude-opus-4-1-20250805"
-          
-          direct_prompt: |
-            Please review this Spring Boot/Java pull request focusing on:
-            **Java Code Quality:**
-            - Code structure and design patterns (특히 Spring patterns)
-            - Proper use of Spring annotations (@Service, @Controller, @Repository 등)
-            - Exception handling and error management
-            - Code readability and maintainability
-          
-            **Spring Framework Best Practices:**
-            - Dependency injection usage
-            - Bean configuration and lifecycle
-            - Transaction management (@Transactional 사용)
-            - Security considerations (Spring Security 관련)
+          script: |
+            const fs = require('fs');
+            const reviewOutput = fs.readFileSync('review-output.md', 'utf8');
             
-            **Performance & Optimization:**
-            - Database query optimization (JPA/Hibernate 쿼리)
-            - Caching strategies
-            - Memory usage and potential leaks
-            - API response time considerations
-            
-            **Configuration & Deployment:**
-            - Application properties/yml configuration
-            - Docker configuration (if present)
-            - Maven/Gradle dependency management
-            - Environment-specific settings
-            
-            **Testing:**
-            - Unit test coverage and quality
-            - Integration test completeness
-            - Mock usage and test isolation
-            - Test naming conventions
-            
-            **Security:**
-            - Input validation and sanitization
-            - Authentication and authorization
-            - SQL injection prevention
-            - Sensitive data handling
-            
-            Be constructive and provide specific suggestions for improvement. 
-            Include code examples where helpful.
-
-          use_sticky_comment: true
-          
-          # Claude가 필요시 실행할 수 있는 도구들 (Maven 프로젝트용)
-          allowed_tools: "Bash(./mvnw test),Bash(./mvnw compile),Bash(./mvnw clean compile)"
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🤖 Claude Code Review\n\n${reviewOutput}`
+            });
