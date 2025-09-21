@@ -63,10 +63,10 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           cat > claude_review.js << 'EOF'
-          const Anthropic = require('@anthropic-ai/sdk');
-          const fs = require('fs');
-          
-          const anthropic = new Anthropic({
+            const Anthropic = require('@anthropic-ai/sdk');
+            const fs = require('fs');
+            
+            const anthropic = new Anthropic({
             apiKey: process.env.ANTHROPIC_API_KEY,
           });
           
@@ -75,47 +75,37 @@ jobs:
             try {
               contextContent = fs.readFileSync('review_context.md', 'utf8');
             } catch (err) {
+              console.error('Context file read error:', err);
               contextContent = 'No diff context available.';
             }
-          
-            const systemPrompt = `Always think in English, speak in Korean. Follow the CLAUDE.md guidelines in this repository. Always run Maven-based command instead (use ./mvnw). Focus on Spring Boot best practices, JPA/Hibernate usage, and security considerations.`;
-          
-            const usePrompt = `Please review this Spring Boot Java pull request and provide feedback in Korean on:
-            - Code quality and best practices
-            - Potential bugs or issues
-            - Performance considerations
-            - Security concerns
-            - Test coverage
-        
-            Be constructive and helpful in your feedback."\
-        
-            Here are the changes:
-            ${contextContent}`;
-          
+            
+            const systemInstructions = "Always think in English, speak in Korean. Follow the CLAUDE.md guidelines in this repository. Always run Maven-based commands instead of npm (use ./mvnw). Focus on Spring Boot best practices, JPA/Hibernate usage, and security considerations.";
+            const userPrompt = "Please review this Spring Boot Java pull request and provide feedback in Korean on:\n- Code quality and best practices\n- Potential bugs or issues\n- Performance considerations\n- Security concerns\n- Test coverage\n\nBe constructive and helpful in your feedback.\n\nHere are the changes:\n" + contextContent;
             const message = await anthropic.messages.create({
-              model: "claude-opus-4-1-20250805"
-              max_tokens: 4000
+              model: 'claude-sonnet-4-20250514',
+              max_tokens: 4000,
               messages: [
                 {
                   role: 'user',
-                  content: `${systemPrompt}\n\n${userPrompt}`
+                  content: systemInstructions + "\n\n" + userPrompt
                 }
               ]
             });
-        
+      
             return message.content[0].text;
           }
-          
+
           reviewCode().then(review => {
             fs.writeFileSync('claude_review.md', review);
             console.log('Review completed successfully');
           }).catch(err => {
-            console.error('Error:', err);
-            fs.wrtieFileSync('claude_review.md', '리뷰 생성 중 오류가 발생했습니다: ' + err.message);
+            console.error('Error during review:', err);
+            const errorMsg = '리뷰 생성 중 오류가 발생했습니다: ' + err.message;
+            fs.writeFileSync('claude_review.md', errorMsg);
             process.exit(1);
           });
           EOF
-          
+        
           node claude_review.js
 
       - name: Comment on PR
