@@ -17,10 +17,9 @@ public class ConcertListDto {
   private List<ConcertDto> concertList;
 
   // 페이징 관련 핃드
-  private long totalCount;      // 총 게시물수 -- 한번만 데이터 뽑아오기 위해
+  private long totalCount;      // 총 게시물수 - 한번만 데이터 뽑아오기 위해
   private int totalPages;       // 게시물 전체 개수
   private Boolean hasNext;      // 다음 페이지
   private Boolean hasPrev;      // 이전 페이지
   private List<Long> pages;     // 표시될 페이지
-
 }

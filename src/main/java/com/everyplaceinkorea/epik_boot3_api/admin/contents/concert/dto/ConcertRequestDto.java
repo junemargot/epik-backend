@@ -21,7 +21,7 @@ public class ConcertRequestDto {  // 등록할 때 필요한 데이터
   private LocalDate endDate;       // 종료일
   private String runningTime;      // 공연시간
   private String ageRestriction;   // 관람연령
-  private Long writer;             // 작성자 -- 관리자페이지에서 필요함
+  private Long writer;             // 작성자 - 관리자페이지에서 필요
   private Long region;             // 지역
   private String youtubeUrl;       // 영상
   private String[] fileNames;      // 업로드한 파일명
