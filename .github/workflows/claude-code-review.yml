@@ -62,36 +62,33 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          # API Key 상태 확인
-          echo "API Key length: ${#ANTHROPIC_API_KEY}"
-          echo "API Key prefix: ${ANTHROPIC_API_KEY:0:15}..."
+          # 환경 변수 정리 및 검증
+          export CLEANED_API_KEY=$(echo "$ANTHROPIC_API_KEY" | tr -d '\r\n' | xargs)
+          echo "Cleaned API Key length: ${#CLEANED_API_KEY}"
           
-          # 새로운 모델로 JavaScript 파일 생성
+          # JavaScript 파일 생성
           echo 'const Anthropic = require("@anthropic-ai/sdk");' > claude_review.js
           echo 'const fs = require("fs");' >> claude_review.js
           echo '' >> claude_review.js
+          echo '// API Key 정리 및 검증' >> claude_review.js
+          echo 'const rawApiKey = process.env.ANTHROPIC_API_KEY;' >> claude_review.js
+          echo 'const cleanApiKey = rawApiKey.trim().replace(/[\\r\\n]/g, "");' >> claude_review.js
+          echo 'console.log("Final API Key length:", cleanApiKey.length);' >> claude_review.js
+          echo '' >> claude_review.js
           echo 'const anthropic = new Anthropic({' >> claude_review.js
-          echo '  apiKey: process.env.ANTHROPIC_API_KEY,' >> claude_review.js
+          echo '  apiKey: cleanApiKey,' >> claude_review.js
           echo '});' >> claude_review.js
           echo '' >> claude_review.js
           echo 'async function reviewCode() {' >> claude_review.js
           echo '  console.log("🚀 Starting Claude API call...");' >> claude_review.js
-          echo '  let contextContent = "";' >> claude_review.js
-          echo '  try {' >> claude_review.js
-          echo '    contextContent = fs.readFileSync("review_context.md", "utf8");' >> claude_review.js
-          echo '  } catch (err) {' >> claude_review.js
-          echo '    contextContent = "No diff context available.";' >> claude_review.js
-          echo '  }' >> claude_review.js
-          echo '' >> claude_review.js
+          echo '  ' >> claude_review.js
           echo '  const message = await anthropic.messages.create({' >> claude_review.js
           echo '    model: "claude-3-5-sonnet-latest",' >> claude_review.js
-          echo '    max_tokens: 4000,' >> claude_review.js
-          echo '    messages: [' >> claude_review.js
-          echo '      {' >> claude_review.js
-          echo '        role: "user",' >> claude_review.js
-          echo '        content: "Always think in English, speak in Korean. Please review this Spring Boot Java code and provide feedback in Korean:\\n\\n" + contextContent' >> claude_review.js
-                                                                                                            echo '      }' >> claude_review.js
-          echo '    ]' >> claude_review.js
+          echo '    max_tokens: 1000,' >> claude_review.js
+          echo '    messages: [{' >> claude_review.js
+          echo '      role: "user",' >> claude_review.js
+          echo '      content: "Hello! Please respond in Korean that the API connection is working."' >> claude_review.js
+          echo '    }]' >> claude_review.js
           echo '  });' >> claude_review.js
           echo '' >> claude_review.js
           echo '  return message.content[0].text;' >> claude_review.js
@@ -103,8 +100,8 @@ jobs:
           echo '}).catch(err => {' >> claude_review.js
           echo '  console.error("❌ Error:", err.message);' >> claude_review.js
           echo '  console.error("❌ Status:", err.status);' >> claude_review.js
-          echo '  fs.writeFileSync("claude_review.md", "리뷰 생성 중 오류: " + err.message);' >> claude_review.js
-          echo '  process.exit(1);' >> claude_review.js
+          echo '  console.error("❌ Headers:", err.headers);' >> claude_review.js
+          echo '  fs.writeFileSync("claude_review.md", "API 연결 테스트 실패: " + err.message);' >> claude_review.js
           echo '});' >> claude_review.js
           
           node claude_review.js
