@@ -334,8 +334,11 @@ public class KopisDataSyncService {
     /**
      * 개별 뮤지컬 동기화
      */
-    private void syncSingleMusical(KopisPerformanceDto dto, Member systemMember,
-                                   Region defaultRegion, SyncResult result) {
+    private void syncSingleMusical(
+            KopisPerformanceDto dto,
+            Member systemMember,
+            Region defaultRegion,
+            SyncResult result) {
 
         try {
             // 1. 상세 정보 추가 조회
