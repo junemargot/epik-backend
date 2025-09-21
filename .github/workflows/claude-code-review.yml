@@ -30,46 +30,14 @@ jobs:
         uses: anthropics/claude-code-action@beta
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-
           direct_prompt: |
-            Please review this Spring Boot/Java pull request focusing on:
-            **Java Code Quality:**
-            - Code structure and design patterns (특히 Spring patterns)
-            - Proper use of Spring annotations (@Service, @Controller, @Repository 등)
-            - Exception handling and error management
-            - Code readability and maintainability
-          
-            **Spring Framework Best Practices:**
-            - Dependency injection usage
-            - Bean configuration and lifecycle
-            - Transaction management (@Transactional 사용)
-            - Security considerations (Spring Security 관련)
+            Please review this pull request in Korean and provide feedback on:
+            - Code quality and best practices
+            - Potential bugs or issues
+            - Performance considerations
+            - Security concerns
+            - Test coverage
             
-            **Performance & Optimization:**
-            - Database query optimization (JPA/Hibernate 쿼리)
-            - Caching strategies
-            - Memory usage and potential leaks
-            - API response time considerations
-            
-            **Configuration & Deployment:**
-            - Application properties/yml configuration
-            - Docker configuration (if present)
-            - Maven/Gradle dependency management
-            - Environment-specific settings
-            
-            **Testing:**
-            - Unit test coverage and quality
-            - Integration test completeness
-            - Mock usage and test isolation
-            - Test naming conventions
-            
-            **Security:**
-            - Input validation and sanitization
-            - Authentication and authorization
-            - SQL injection prevention
-            - Sensitive data handling
-            
-            Be constructive and provide specific suggestions for improvement.
-            Include code examples where helpful.
+            Be constructive and helpful in your feedback.
 
           use_sticky_comment: true
