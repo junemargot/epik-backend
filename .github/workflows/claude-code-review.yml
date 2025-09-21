@@ -62,48 +62,43 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          # 환경 변수 정리 및 검증
-          export CLEANED_API_KEY=$(echo "$ANTHROPIC_API_KEY" | tr -d '\r\n' | xargs)
-          echo "Cleaned API Key length: ${#CLEANED_API_KEY}"
-          
-          # JavaScript 파일 생성
-          echo 'const Anthropic = require("@anthropic-ai/sdk");' > claude_review.js
-          echo 'const fs = require("fs");' >> claude_review.js
-          echo '' >> claude_review.js
-          echo '// API Key 정리 및 검증' >> claude_review.js
-          echo 'const rawApiKey = process.env.ANTHROPIC_API_KEY;' >> claude_review.js
-          echo 'const cleanApiKey = rawApiKey.trim().replace(/[\\r\\n]/g, "");' >> claude_review.js
-          echo 'console.log("Final API Key length:", cleanApiKey.length);' >> claude_review.js
-          echo '' >> claude_review.js
-          echo 'const anthropic = new Anthropic({' >> claude_review.js
-          echo '  apiKey: cleanApiKey,' >> claude_review.js
-          echo '});' >> claude_review.js
-          echo '' >> claude_review.js
-          echo 'async function reviewCode() {' >> claude_review.js
-          echo '  console.log("🚀 Starting Claude API call...");' >> claude_review.js
-          echo '  ' >> claude_review.js
-          echo '  const message = await anthropic.messages.create({' >> claude_review.js
-          echo '    model: "claude-3-5-sonnet-latest",' >> claude_review.js
-          echo '    max_tokens: 1000,' >> claude_review.js
-          echo '    messages: [{' >> claude_review.js
-          echo '      role: "user",' >> claude_review.js
-          echo '      content: "Hello! Please respond in Korean that the API connection is working."' >> claude_review.js
-          echo '    }]' >> claude_review.js
-          echo '  });' >> claude_review.js
-          echo '' >> claude_review.js
-          echo '  return message.content[0].text;' >> claude_review.js
-          echo '}' >> claude_review.js
-          echo '' >> claude_review.js
-          echo 'reviewCode().then(review => {' >> claude_review.js
-          echo '  fs.writeFileSync("claude_review.md", review);' >> claude_review.js
-          echo '  console.log("✅ Review completed successfully");' >> claude_review.js
-          echo '}).catch(err => {' >> claude_review.js
-          echo '  console.error("❌ Error:", err.message);' >> claude_review.js
-          echo '  console.error("❌ Status:", err.status);' >> claude_review.js
-          echo '  console.error("❌ Headers:", err.headers);' >> claude_review.js
-          echo '  fs.writeFileSync("claude_review.md", "API 연결 테스트 실패: " + err.message);' >> claude_review.js
-          echo '});' >> claude_review.js
-          
+          # API Key 보안 처리 - 절대 전체 키를 출력하지 않음
+          echo "API Key configured: ${ANTHROPIC_API_KEY:0:15}...${ANTHROPIC_API_KEY: -4}"
+
+          cat > claude_review.js << 'EOF'
+          const Anthropic = require('@anthropic-ai/sdk');
+          const fs = require('fs');
+
+          const anthropic = new Anthropic({
+            apiKey: process.env.ANTHROPIC_API_KEY?.trim(),
+          });
+
+          async function reviewCode() {
+            console.log('Starting Claude API call...');
+
+            const message = await anthropic.messages.create({
+              model: 'claude-3-5-sonnet-20241022',
+              max_tokens: 1000,
+              messages: [{
+                role: 'user',
+                content: 'Hello! Please respond in Korean that the API connection is working.'
+              }]
+            });
+
+            return message.content[0].text;
+          }
+
+          reviewCode().then(review => {
+            fs.writeFileSync('claude_review.md', review);
+            console.log('Review completed successfully');
+          }).catch(err => {
+            // 보안: API Key가 포함된 에러 메시지는 필터링
+            const safeError = err.message.replace(/sk-ant-api03-[A-Za-z0-9_-]+/g, '[API_KEY_HIDDEN]');
+            console.error('Error:', safeError);
+            fs.writeFileSync('claude_review.md', 'API 연결 실패');
+          });
+          EOF
+
           node claude_review.js
 
       - name: Comment on PR
