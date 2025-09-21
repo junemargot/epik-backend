@@ -62,7 +62,11 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          # JavaScript 파일을 단계적으로 작성
+          # API Key 상태 확인
+          echo "API Key length: ${#ANTHROPIC_API_KEY}"
+          echo "API Key prefix: ${ANTHROPIC_API_KEY:0:15}..."
+          
+          # 새로운 모델로 JavaScript 파일 생성
           echo 'const Anthropic = require("@anthropic-ai/sdk");' > claude_review.js
           echo 'const fs = require("fs");' >> claude_review.js
           echo '' >> claude_review.js
@@ -71,25 +75,22 @@ jobs:
           echo '});' >> claude_review.js
           echo '' >> claude_review.js
           echo 'async function reviewCode() {' >> claude_review.js
+          echo '  console.log("🚀 Starting Claude API call...");' >> claude_review.js
           echo '  let contextContent = "";' >> claude_review.js
           echo '  try {' >> claude_review.js
           echo '    contextContent = fs.readFileSync("review_context.md", "utf8");' >> claude_review.js
           echo '  } catch (err) {' >> claude_review.js
-          echo '    console.error("Context file read error:", err);' >> claude_review.js
           echo '    contextContent = "No diff context available.";' >> claude_review.js
           echo '  }' >> claude_review.js
           echo '' >> claude_review.js
-          echo '  const systemInstructions = "Always think in English, speak in Korean. Focus on Spring Boot best practices, JPA/Hibernate usage, and security considerations.";' >> claude_review.js
-          echo '  const userPrompt = "Please review this Spring Boot Java pull request and provide feedback in Korean on code quality, potential bugs, performance, security, and test coverage. Be constructive and helpful.\\n\\nChanges:\\n" + contextContent;' >> claude_review.js
-          echo '' >> claude_review.js
           echo '  const message = await anthropic.messages.create({' >> claude_review.js
-          echo '    model: "claude-3-5-sonnet-20241022",' >> claude_review.js
+          echo '    model: "claude-3-5-sonnet-latest",' >> claude_review.js
           echo '    max_tokens: 4000,' >> claude_review.js
           echo '    messages: [' >> claude_review.js
           echo '      {' >> claude_review.js
           echo '        role: "user",' >> claude_review.js
-          echo '        content: systemInstructions + "\\n\\n" + userPrompt' >> claude_review.js
-          echo '      }' >> claude_review.js
+          echo '        content: "Always think in English, speak in Korean. Please review this Spring Boot Java code and provide feedback in Korean:\\n\\n" + contextContent' >> claude_review.js
+                                                                                                            echo '      }' >> claude_review.js
           echo '    ]' >> claude_review.js
           echo '  });' >> claude_review.js
           echo '' >> claude_review.js
@@ -98,20 +99,14 @@ jobs:
           echo '' >> claude_review.js
           echo 'reviewCode().then(review => {' >> claude_review.js
           echo '  fs.writeFileSync("claude_review.md", review);' >> claude_review.js
-          echo '  console.log("Review completed successfully");' >> claude_review.js
+          echo '  console.log("✅ Review completed successfully");' >> claude_review.js
           echo '}).catch(err => {' >> claude_review.js
-          echo '  console.error("Error during review:", err);' >> claude_review.js
-          echo '  const errorMsg = "리뷰 생성 중 오류가 발생했습니다: " + err.message;' >> claude_review.js
-          echo '  fs.writeFileSync("claude_review.md", errorMsg);' >> claude_review.js
+          echo '  console.error("❌ Error:", err.message);' >> claude_review.js
+          echo '  console.error("❌ Status:", err.status);' >> claude_review.js
+          echo '  fs.writeFileSync("claude_review.md", "리뷰 생성 중 오류: " + err.message);' >> claude_review.js
           echo '  process.exit(1);' >> claude_review.js
           echo '});' >> claude_review.js
           
-          # 생성된 파일 확인
-          echo "=== Generated JavaScript file ==="
-          cat claude_review.js
-          echo "================================="
-          
-          # 실행
           node claude_review.js
 
       - name: Comment on PR
