@@ -28,9 +28,10 @@ public class MusicalController {
     private final MusicalService musicalService;
 
     @PostMapping
-    public ResponseEntity<MusicalResponseDto> create (MusicalCreateDto requestDto,
-                                                      MultipartFile files
-                                                      ) throws IOException {
+    public ResponseEntity<MusicalResponseDto> create (
+            MusicalCreateDto requestDto,
+            MultipartFile files) throws IOException {
+
         log.info("requestDto = {} ", requestDto);
         return ResponseEntity.status(HttpStatus.OK)
                 .body(musicalService.create(requestDto, files));
@@ -71,9 +72,11 @@ public class MusicalController {
     // 뮤지컬 게시물 수정
     // api/v1/admin/musical/{id}
     @PatchMapping("{id}")
-    public ResponseEntity<Long> update(@PathVariable Long id,
-                                       @RequestPart(name = "request") MusicalUpdateDto musicalUpdateDto,
-                                       @RequestPart MultipartFile file) {
+    public ResponseEntity<Long> update(
+            @PathVariable Long id,
+            @RequestPart(name = "request") MusicalUpdateDto musicalUpdateDto,
+            @RequestPart MultipartFile file) {
+
         musicalService.update(id, musicalUpdateDto, file);
         return ResponseEntity.noContent().build();
     }
