@@ -12,112 +12,67 @@ jobs:
       !contains(github.event.pull_request.title, '[skip-review]') &&
       !contains(github.event.pull_request.title, '[WIP]')
 
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write
-      issues: write
+      pull-requests: read
+      issues: read
+      id-token: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
-      - name: Get changed Java files
-        id: changed-files
-        run: |
-          git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD | grep '\.java$' > changed_files.txt || true
-          FILE_COUNT=$(wc -l < changed_files.txt)
-          echo "changed_file_count=$FILE_COUNT" >> $GITHUB_OUTPUT
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@beta
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+          direct_prompt: |
+            Please review this Spring Boot/Java pull request focusing on:
+            **Java Code Quality:**
+            - Code structure and design patterns (특히 Spring patterns)
+            - Proper use of Spring annotations (@Service, @Controller, @Repository 등)
+            - Exception handling and error management
+            - Code readability and maintainability
           
-          echo "## Changed Files Diff" > review_context.md
-          head -20 changed_files.txt | while IFS= read -r file; do
-            if [ -f "$file" ]; then
-              echo "### $file" >> review_context.md
-              echo '```diff' >> review_context.md
-              git diff origin/${{ github.event.pull_request.base.ref }}...HEAD -- "$file" | head -100 >> review_context.md
-              echo '```' >> review_context.md
-            fi
-          done
-
-      - name: Setup Node.js
-        if: steps.changed-files.outputs.changed_file_count > 0
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install Anthropic SDK
-        if: steps.changed-files.outputs.changed_file_count > 0
-        run: npm install @anthropic-ai/sdk
-
-      - name: Create and Run Claude Code Review
-        if: steps.changed-files.outputs.changed_file_count > 0
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          # API Key 보안 처리 - 절대 전체 키를 출력하지 않음
-          echo "API Key configured: ${ANTHROPIC_API_KEY:0:15}...${ANTHROPIC_API_KEY: -4}"
-
-          cat > claude_review.js << 'EOF'
-          const Anthropic = require('@anthropic-ai/sdk');
-          const fs = require('fs');
-
-          const anthropic = new Anthropic({
-            apiKey: process.env.ANTHROPIC_API_KEY?.trim(),
-          });
-
-          async function reviewCode() {
-            console.log('Starting Claude API call...');
-
-            const message = await anthropic.messages.create({
-              model: 'claude-3-5-sonnet-20241022',
-              max_tokens: 1000,
-              messages: [{
-                role: 'user',
-                content: 'Hello! Please respond in Korean that the API connection is working.'
-              }]
-            });
-
-            return message.content[0].text;
-          }
-
-          reviewCode().then(review => {
-            fs.writeFileSync('claude_review.md', review);
-            console.log('Review completed successfully');
-          }).catch(err => {
-            // 보안: API Key가 포함된 에러 메시지는 필터링
-            const safeError = err.message.replace(/sk-ant-api03-[A-Za-z0-9_-]+/g, '[API_KEY_HIDDEN]');
-            console.error('Error:', safeError);
-            fs.writeFileSync('claude_review.md', 'API 연결 실패');
-          });
-          EOF
-
-          node claude_review.js
-
-      - name: Comment on PR
-        if: steps.changed-files.outputs.changed_file_count > 0
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
+            **Spring Framework Best Practices:**
+            - Dependency injection usage
+            - Bean configuration and lifecycle
+            - Transaction management (@Transactional 사용)
+            - Security considerations (Spring Security 관련)
             
-            let reviewContent;
-            try {
-              reviewContent = fs.readFileSync('claude_review.md', 'utf8');
-            } catch (err) {
-              reviewContent = '리뷰 파일을 읽을 수 없습니다.';
-            }
+            **Performance & Optimization:**
+            - Database query optimization (JPA/Hibernate 쿼리)
+            - Caching strategies
+            - Memory usage and potential leaks
+            - API response time considerations
             
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `## 🤖 Claude 코드 리뷰\n\n${reviewContent}`
-            });
+            **Configuration & Deployment:**
+            - Application properties/yml configuration
+            - Docker configuration (if present)
+            - Maven/Gradle dependency management
+            - Environment-specific settings
+            
+            **Testing:**
+            - Unit test coverage and quality
+            - Integration test completeness
+            - Mock usage and test isolation
+            - Test naming conventions
+            
+            **Security:**
+            - Input validation and sanitization
+            - Authentication and authorization
+            - SQL injection prevention
+            - Sensitive data handling
+            
+            Be constructive and provide specific suggestions for improvement.
+            Include code examples where helpful.
+            
+            Be constructive and provide specific suggestions for improvement. 
+            Include code examples where helpful.
+
+          use_sticky_comment: true
