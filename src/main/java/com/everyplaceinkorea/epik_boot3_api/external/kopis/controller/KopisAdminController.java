@@ -160,7 +160,7 @@ public class KopisAdminController {
     }
 
     /**
-     * 테스트용 엔드포인트 추가 테스트 주석
+     * 테스트용 엔드포인트
      */
     @GetMapping("/test")
     public ResponseEntity<Map<String, Object>> test() {
