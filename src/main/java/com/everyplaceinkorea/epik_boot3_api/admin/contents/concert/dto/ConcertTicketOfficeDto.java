@@ -12,4 +12,5 @@ public class ConcertTicketOfficeDto {
   private String name;      // 티켓 판매처 플랫폼 이름
   private String link;      // 티켓 판매 링크
   private Long concertId;   // 공연 정보 FK
+  private String concertType; // 테스트용
 }
