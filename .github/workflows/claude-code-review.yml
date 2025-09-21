@@ -30,39 +30,107 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Get changed Java files
+        id: changed-files
+        run: |
+          git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD | grep '\.java$' > changed_files.txt || true
+          FILE_COUNT=$(wc -l < changed_files.txt)
+          echo "changed_file_count=$FILE_COUNT" >> $GITHUB_OUTPUT
+          
+          echo "## Changed Files Diff" > review_context.md
+          head -20 changed_files.txt | while IFS= read -r file; do
+            if [ -f "$file" ]; then
+              echo "### $file" >> review_context.md
+              echo '```diff' >> review_context.md
+              git diff origin/${{ github.event.pull_request.base.ref }}...HEAD -- "$file" | head -100 >> review_context.md
+              echo '```' >> review_context.md
+            fi
+          done
+
       - name: Setup Node.js
+        if: steps.changed-files.outputs.changed_file_count > 0
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: Install Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code
+      - name: Install Anthropic SDK
+        if: steps.changed-files.outputs.changed_file_count > 0
+        run: npm install @anthropic-ai/sdk
 
-      - name: Run Claude Code Review
+      - name: Create and Run Claude Code Review
+        if: steps.changed-files.outputs.changed_file_count > 0
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          claude-code review \
-            --diff \
-            --base origin/${{ github.event.pull_request.base.ref }} \
-            --instructions "Always think in English, speak in Korean. Follow the CLAUDE.md guidelines in this repository. Use Korean strings as i18n keys with English translations. Always run Maven-based commands instead of npm (use ./mvnw). Focus on Spring Boot best practices, JPA/Hibernate usage, and security considerations." \
-            --prompt "
-              Please review this pull request and provide feedback on:
-              - Code quality and best practices
-              - Potential bugs or issues
-              - Performance considerations
-              - Security concerns
-              - Test coverage
-              Be constructive and helpful in your feedback."\
-            --format github \
-            > review-output.md
+          cat > claude_review.js << 'EOF'
+          const Anthropic = require('@anthropic-ai/sdk');
+          const fs = require('fs');
+          
+          const anthropic = new Anthropic({
+            apiKey: process.env.ANTHROPIC_API_KEY,
+          });
+          
+          async function reviewCode() {
+            let contextContent = '';
+            try {
+              contextContent = fs.readFileSync('review_context.md', 'utf8');
+            } catch (err) {
+              contextContent = 'No diff context available.';
+            }
+          
+            const systemPrompt = `Always think in English, speak in Korean. Follow the CLAUDE.md guidelines in this repository. Always run Maven-based command instead (use ./mvnw). Focus on Spring Boot best practices, JPA/Hibernate usage, and security considerations.`;
+          
+            const usePrompt = `Please review this Spring Boot Java pull request and provide feedback in Korean on:
+            - Code quality and best practices
+            - Potential bugs or issues
+            - Performance considerations
+            - Security concerns
+            - Test coverage
+        
+            Be constructive and helpful in your feedback."\
+        
+            Here are the changes:
+            ${contextContent}`;
+          
+            const message = await anthropic.messages.create({
+              model: "claude-opus-4-1-20250805"
+              max_tokens: 4000
+              messages: [
+                {
+                  role: 'user',
+                  content: `${systemPrompt}\n\n${userPrompt}`
+                }
+              ]
+            });
+        
+            return message.content[0].text;
+          }
+          
+          reviewCode().then(review => {
+            fs.writeFileSync('claude_review.md', review);
+            console.log('Review completed successfully');
+          }).catch(err => {
+            console.error('Error:', err);
+            fs.wrtieFileSync('claude_review.md', '리뷰 생성 중 오류가 발생했습니다: ' + err.message);
+            process.exit(1);
+          });
+          EOF
+          
+          node claude_review.js
 
       - name: Comment on PR
+        if: steps.changed-files.outputs.changed_file_count > 0
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
-            const reviewOutput = fs.readFileSync('review-output.md', 'utf8');
+            
+            let reviewContent;
+            try {
+              reviewContent = fs.readFileSync('claude_review.md', 'utf8');
+            } catch (err) {
+              reviewContent = '리뷰 파일을 읽을 수 없습니다.';
+            }
             
             github.rest.issues.createComment({
               issue_number: context.issue.number,

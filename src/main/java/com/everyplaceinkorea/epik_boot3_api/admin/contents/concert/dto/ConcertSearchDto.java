@@ -10,5 +10,5 @@ import lombok.NoArgsConstructor;
 public class ConcertSearchDto {
   private Integer page;
   private String keyword;
-  private String searchType;
+  private String searchType; // 검색 타입
 }
