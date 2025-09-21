@@ -14,21 +14,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 
+@Slf4j
 @RestController
 @RequestMapping("admin/concert")
 @RequiredArgsConstructor
-@Slf4j
 public class ConcertController {
 
   private final ConcertService concertService;
-
-//  @GetMapping
-//  public ResponseEntity<ConcertListDto> getAllConcerts() {
-//
-//    ConcertListDto concertList = concertService.getList();
-//
-//    return ResponseEntity.ok(concertList);
-//  }
 
   @GetMapping
   public ResponseEntity<ConcertListDto> getAllConcerts(
@@ -44,7 +36,6 @@ public class ConcertController {
     return ResponseEntity.ok().body(concerts);
   }
 
-
   @GetMapping("/{id}")
   public ResponseEntity<ConcertResponseDto> getConcertById(@PathVariable Long id) {
 
@@ -52,17 +43,14 @@ public class ConcertController {
     return ResponseEntity.ok(concert);
   }
 
-  // 콘서트 등록 요청
   @PostMapping
   public ResponseEntity<ConcertResponseDto> createConcert(@ModelAttribute ConcertRequestDto concertRequestDto,
                                                           MultipartFile files) throws IOException {
     log.info("Concert request: {}", concertRequestDto.toString());
     return ResponseEntity.status(HttpStatus.OK)
             .body(concertService.create(concertRequestDto, files));
-
   }
 
-  // 콘서트 삭제
   @DeleteMapping("{id}")
   public ResponseEntity<Void> delete(@PathVariable Long id) {
 
@@ -70,7 +58,4 @@ public class ConcertController {
 
     return ResponseEntity.noContent().build();
   }
-
-
-
 }

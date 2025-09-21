@@ -8,9 +8,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ConcertSearchDto {
-
   private Integer page;
   private String keyword;
   private String searchType;
-
 }

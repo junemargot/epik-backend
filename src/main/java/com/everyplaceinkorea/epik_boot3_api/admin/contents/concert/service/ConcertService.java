@@ -11,7 +11,7 @@ import java.util.List;
 
 public interface ConcertService {
 
-  // 전체 조회(R)
+//  전체 조회(R)
 //  ConcertListDto getList();
   ConcertListDto getList(int page, String keyword, String searchType);
 

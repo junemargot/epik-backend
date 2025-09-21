@@ -18,5 +18,4 @@ public class ConcertDto {
   private String writer;
   private LocalDateTime writeDate;
   private Integer viewCount;
-
 }
