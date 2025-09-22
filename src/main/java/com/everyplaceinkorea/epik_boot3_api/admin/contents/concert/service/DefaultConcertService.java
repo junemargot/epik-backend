@@ -35,7 +35,7 @@ import java.util.stream.LongStream;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class DefatulConcertService implements ConcertService {
+public class DefaultConcertService implements ConcertService {
 
   private final ConcertRepository concertRepository;
   private final ConcertTicketOfficeRepository concertTicketOfficeRepository;
@@ -468,4 +468,6 @@ public class DefatulConcertService implements ConcertService {
 
     return ticketPrices;
   }
+
+  // claude oauth 토큰 테스트용 주석
 }
