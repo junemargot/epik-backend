@@ -6,6 +6,7 @@ import lombok.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -33,6 +34,11 @@ public class MusicalResponseDto {
 
     private List<String> musicalImages; // KOPIS 상세 이미지들
     private String kopisPcseguidance;   // KOPIS 티켓 가격 정보
+
+    // JSON 예매처 정보 추가
+    private Map<String, String> ticketOffiecs;
+    private LocalDateTime ticketOfficesUpdatedAt;
+    private String ticketOfficesSource;
 
     // 이미지 URL 동적 생성
     public String getImageUrl() {
