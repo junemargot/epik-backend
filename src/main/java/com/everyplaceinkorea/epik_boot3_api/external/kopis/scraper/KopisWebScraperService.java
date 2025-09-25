@@ -3,13 +3,12 @@ package com.everyplaceinkorea.epik_boot3_api.external.kopis.scraper;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.TicketOfficeScrapeResult;
 import io.github.bonigarcia.wdm.WebDriverManager;
 import lombok.extern.slf4j.Slf4j;
-import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
+import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.openqa.selenium.TimeoutException;
 import org.springframework.stereotype.Service;
 
 import java.net.URL;
@@ -112,7 +111,7 @@ public class KopisWebScraperService {
         ticketButton.click();
 
         // 팝업 대기 후 링크 추출
-        Thread.sleep(2000); // 팝업 로드 대기
+        waitForPopupToLoad(driver, wait);
         return extractLinksFromPopup(driver, wait, kopisId);
       } else {
         log.warn("예매처 바로가기 버튼을 찾을 수 없음");
@@ -355,6 +354,33 @@ public class KopisWebScraperService {
       return domain.replace("www.", "");
     } catch (Exception e) {
       return "기타 예매처";
+    }
+  }
+
+  private void waitForPopupToLoad(WebDriver driver, WebDriverWait wait) {
+    try {
+      // 팝업이 실제로 나타나고 안정화 대기
+      wait.until(ExpectedConditions.and(
+              ExpectedConditions.presenceOfElementLocated(
+                      By.xpath("//div[contains(@class, 'DBDetail_layerPopCon__MFjyU')]")
+              ),
+              ExpectedConditions.elementToBeClickable(
+                      By.xpath("//div[contains(@class, 'DBDetail_layerPopCon__MFjyU')]//a")
+              )
+      ));
+
+      // 추가로 DOM이 완전히 렌더링될 때까지 대기
+      wait.until(webDriver ->
+              ((JavascriptExecutor) webDriver).executeScript(
+                      "return document.readyState === 'complete' && " +
+                              "document.querySelectorAll('.DBDetail_layerPopCon__MFjyU a').length > 0"
+              ).equals(true)
+      );
+
+      log.debug("팝업 로딩 완료 확인");
+
+    } catch (TimeoutException e) {
+      log.warn("팝업 로딩 대기 시간 초과, 계속 진행: {}", e.getMessage());
     }
   }
 }
