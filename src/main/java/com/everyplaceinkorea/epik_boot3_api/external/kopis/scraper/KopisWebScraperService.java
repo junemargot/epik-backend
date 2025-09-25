@@ -151,13 +151,13 @@ public class KopisWebScraperService {
         List<WebElement> elements = driver.findElements(By.xpath(selector));
         if(!elements.isEmpty()) {
           WebElement button = elements.get(0);
-          if(button.isDisplayed() & button.isEnabled()) {
+          if(button.isDisplayed() && button.isEnabled()) {
             log.debug("버튼 탐색 - 셀렉터: {}, 텍스트: '{}'", selector, button.getText());
             return button;
           }
         }
       } catch (Exception e) {
-        log.debug("셀렉터 '{} 추출 시도 실패: {}", selector, e.getMessage());
+        log.debug("셀렉터 '{}' 추출 시도 실패: {}", selector, e.getMessage());
       }
     }
 

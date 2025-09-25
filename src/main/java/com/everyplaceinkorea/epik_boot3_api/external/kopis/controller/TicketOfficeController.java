@@ -108,7 +108,7 @@ public class TicketOfficeController {
   public ResponseEntity<String> updateRecentConcertTicketOffices() {
     try {
       new Thread(jsonService::updateRecentConcertTicketOffices).start();
-      return ResponseEntity.ok("최근 5개 콘서트 예매처 정보 업데이트 시작됨 (백그라운드 실행");
+      return ResponseEntity.ok("최근 5개 콘서트 예매처 정보 업데이트 시작됨 (백그라운드 실행)");
     } catch (Exception e) {
       return ResponseEntity.status(500).body("업데이트 시작 실패: " + e.getMessage());
     }
