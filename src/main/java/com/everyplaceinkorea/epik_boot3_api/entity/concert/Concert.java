@@ -6,6 +6,8 @@ import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.Status;
 import com.everyplaceinkorea.epik_boot3_api.entity.Region;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.KopisPerformanceDto;
+import com.everyplaceinkorea.epik_boot3_api.external.kopis.enums.TicketOfficeSource;
+import com.everyplaceinkorea.epik_boot3_api.external.kopis.utils.JsonUtils;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.utils.KopisDataUtils;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -14,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.hibernate.annotations.CurrentTimestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Slf4j
 @Getter
@@ -75,14 +78,14 @@ public class Concert {
   @Enumerated(EnumType.STRING)
   private Status status = Status.ACTIVE;
 
-  // KOPIS 관련 필드
   @Enumerated(EnumType.STRING)
   @Column(name = "data_source")
   private DataSource dataSource = DataSource.MANUAL;
 
   @Column(name = "last_synced")
-  private LocalDateTime lastSynced;  // 마지막 동기화 시간
+  private LocalDateTime lastSynced;
 
+  // === KOPIS 관련 필드 ===
   @Column(name = "kopis_id", unique = true)
   private String kopisId;
 
@@ -109,6 +112,16 @@ public class Concert {
 
   @Column(name = "detail_images", columnDefinition = "TEXT")
   private String detailImages; // 상세 이미지 URL들 (JSON 배열 형태)
+
+  @Column(name = "kopis_ticket_offices", columnDefinition = "JSON")
+  private String kopisTicketOffices;
+
+  @Column(name = "kopis_ticket_offices_updated_at")
+  private LocalDateTime kopisTicketOfficesUpdatedAt;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "kopis_ticket_offices_source")
+  private TicketOfficeSource kopisTicketOfficesSource = TicketOfficeSource.MANUAL;
 
   public void addImage(ConcertUploadResultDto uploadResult) {
     this.filePath = uploadResult.getFilePath();
@@ -322,5 +335,23 @@ public class Concert {
     concert.setRunningTime(determineRunningTime(dto));
 
     log.debug("부가 정보 설정 완료: runningTime=[{}]", concert.getRunningTime());
+  }
+
+  // === JSON 헬퍼 메서드들 ===
+
+  /**
+   * 예매처 정보를 Map으로 변환
+   */
+  @Transient
+  public Map<String, String> getTicketOffices() {
+    return JsonUtils.fromJsonToMap(kopisTicketOffices);
+  }
+
+  /**
+   * 예매처 정보 설정
+   */
+  public void setTicketOffices(Map<String, String> offices) {
+    this.kopisTicketOffices = JsonUtils.toJson(offices);
+    this.kopisTicketOfficesUpdatedAt = LocalDateTime.now();
   }
 }

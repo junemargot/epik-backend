@@ -5,6 +5,8 @@ import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.entity.Region;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.KopisPerformanceDto;
+import com.everyplaceinkorea.epik_boot3_api.external.kopis.enums.TicketOfficeSource;
+import com.everyplaceinkorea.epik_boot3_api.external.kopis.utils.JsonUtils;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.utils.KopisDataUtils;
 import jakarta.persistence.*;
 import lombok.*;
@@ -12,7 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.hibernate.annotations.CreationTimestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.util.Map;
 
 @Slf4j
 @Entity
@@ -62,23 +64,23 @@ public class Musical {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id")
-    private Member member; // 작성자 테이블 외래키(fk)
+    private Member member;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "region_id")
-    private Region region; // 지역 테이블 외래키(fk)
+    private Region region;
 
     @Enumerated(EnumType.STRING)
     private Status status = Status.ACTIVE;
 
-    // KOPIS 관련 필드
     @Enumerated(EnumType.STRING)
     @Column(name = "data_source")
     private DataSource dataSource = DataSource.MANUAL;
 
     @Column(name = "last_synced")
-    private LocalDateTime lastSynced;  // 마지막 동기화 시간
+    private LocalDateTime lastSynced;
 
+    // === KOPIS 관련 필드 ===
     @Column(name = "kopis_id", unique = true)
     private String kopisId;
 
@@ -106,8 +108,15 @@ public class Musical {
     @Column(name = "kopis_styurls", columnDefinition = "TEXT")
     private String kopisStyurls;
 
-    @Column(name = "kopis_prfage") // 관람연령
-    private String kopisPrfage;
+    @Column(name = "kopis_ticket_offices", columnDefinition = "JSON")
+    private String kopisTicketOffices;
+
+    @Column(name = "kopis_ticket_offices_updated_at")
+    private LocalDateTime kopisTicketOfficesUpdatedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "kopis_ticket_offices_source")
+    private TicketOfficeSource kopisTicketOfficesSource = TicketOfficeSource.MANUAL;
 
 
     public void addMember(Member member) {
@@ -367,5 +376,23 @@ public class Musical {
         musical.setRunningTime(determineRunningTime(dto));
 
         log.debug("부가 정보 설정 완료: runningTime=[{}]", musical.getRunningTime());
+    }
+
+    // === JSON 헬퍼 메서드들 ===
+
+    /**
+     * 예매처 정보를 Map으로 변환
+     */
+    @Transient
+    public Map<String, String> getTicketOffices() {
+        return JsonUtils.fromJsonToMap(kopisTicketOffices);
+    }
+
+    /**
+     * 예매처 정보 설정
+     */
+    public void setTicketOffices(Map<String, String> offices) {
+        this.kopisTicketOffices = JsonUtils.toJson(offices);
+        this.kopisTicketOfficesUpdatedAt = LocalDateTime.now();
     }
 }

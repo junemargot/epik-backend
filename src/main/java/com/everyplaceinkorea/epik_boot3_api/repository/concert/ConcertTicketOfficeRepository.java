@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Map;
 
 public interface ConcertTicketOfficeRepository extends JpaRepository<ConcertTicketOffice, Long> {
 
@@ -18,4 +19,6 @@ public interface ConcertTicketOfficeRepository extends JpaRepository<ConcertTick
   @Transactional
   @Query("DELETE FROM ConcertTicketOffice c WHERE c.concert.id = :concertId")
   void deleteAllByConcertId(@Param("concertId") Long id);
+
+  List<ConcertTicketOffice> findByConcert(Concert concert);
 }

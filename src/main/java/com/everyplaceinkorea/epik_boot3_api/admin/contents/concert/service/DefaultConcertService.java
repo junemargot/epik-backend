@@ -374,6 +374,13 @@ public class DefaultConcertService implements ConcertService {
    * 데이터 소수에 따라 티켓 정보 다르게 처리
    */
   private void handleTicketInformation(Concert concert, ConcertResponseDto responseDto) {
+    // 수기입력 예매처 먼저 가져오기
+    List<ConcertTicketOffice> manualTicketOffices = concertTicketOfficeRepository.findAllByConcertId(concert.getId());
+
+    // 수기입력과 JSON 예매처 통합 처리
+    handleTicketOffices(concert, responseDto, manualTicketOffices);
+
+    // KOPIS 데이터인 경우 가격 정보 추가 처리
     if(concert.getDataSource() == DataSource.KOPIS_API) {
       handleKopisTicketData(concert, responseDto);
     } else {
@@ -388,12 +395,6 @@ public class DefaultConcertService implements ConcertService {
     // 티켓 가격 파싱
     List<ConcertTicketPriceDto> ticketPriceDtos = parseKopisTicketPrices(concert.getTicketPrice());
     responseDto.setTicketPrices(ticketPriceDtos);
-
-    // 예매처 파싱
-//    List<ConcertTicketOfficeDto> ticketOfficeDtos = parseKopisTicketOffices(concert.getBookingSite());
-//    responseDto.setTicketOffices(ticketOfficeDtos);
-
-//    log.info("KOPIS 티켓 데이터 파싱 완료 - 가격: {}개, 예매처: {}개", ticketPriceDtos.size(), ticketOfficeDtos.size());
   }
 
   /**
@@ -469,5 +470,46 @@ public class DefaultConcertService implements ConcertService {
     return ticketPrices;
   }
 
-  // claude oauth 토큰 테스트용 주석
+  private void handleTicketOffices(Concert concert, ConcertResponseDto responseDto, List<ConcertTicketOffice> manualTicketOffices) {
+    // 1. 수기입력 예매처 설정
+    List<ConcertTicketOfficeDto> ticketOfficeDtos = manualTicketOffices
+            .stream()
+            .map(ticketOffice -> modelMapper.map(ticketOffice, ConcertTicketOfficeDto.class))
+            .collect(Collectors.toList());
+
+    // 2. JSON 예매처 정보를 수기입력 형태로 변환해서 추가
+    Map<String, String> jsonTicketOffices = concert.getTicketOffices();
+    if (jsonTicketOffices != null && !jsonTicketOffices.isEmpty()) {
+      for (Map.Entry<String, String> entry : jsonTicketOffices.entrySet()) {
+        String officeName = entry.getKey();
+        String officeUrl = entry.getValue();
+
+        String displayName = convertOfficeKeyToDisplayName(officeName);
+
+        ConcertTicketOfficeDto jsonOfficeDto = new ConcertTicketOfficeDto();
+        jsonOfficeDto.setName(displayName);
+        jsonOfficeDto.setLink(officeUrl);
+
+        ticketOfficeDtos.add(jsonOfficeDto);
+
+        log.info("JSON 예매처 추가됨: {} -> {}", displayName, officeUrl);
+      }
+    }
+
+    responseDto.setTicketOffices(ticketOfficeDtos);
+  }
+
+  private String convertOfficeKeyToDisplayName(String key) {
+    switch(key.toLowerCase()) {
+      case "interpark": return "인터파크";
+      case "yes24": return "YES24";
+      case "ticketlink": return "티켓링크";
+      case "timeticket": return "타임티켓";
+      case "melon": return "멜론티켓";
+      case "sac": return "예술의전당";
+      case "lotteconcerthall": return "롯데콘서트홀";
+      case "n": return "네이버예약";
+      default: return key;
+    }
+  }
 }
