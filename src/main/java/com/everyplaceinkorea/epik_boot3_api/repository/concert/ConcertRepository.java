@@ -2,6 +2,7 @@ package com.everyplaceinkorea.epik_boot3_api.repository.concert;
 
 import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.concert.Concert;
+import com.everyplaceinkorea.epik_boot3_api.entity.musical.Musical;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -53,5 +54,5 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
   @Query("SELECT COUNT(c) FROM Concert c WHERE c.startDate >= :startDate AND c.startDate <= :endDate")
   long countByStartDateBetween(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
-
+  List<Concert> findByKopisIdIsNotNull();
 }

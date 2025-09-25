@@ -5,6 +5,7 @@ import com.everyplaceinkorea.epik_boot3_api.entity.musical.Musical;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.Status;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -83,4 +84,8 @@ public interface MusicalRepository extends JpaRepository<Musical, Long> {
 
     @Query("SELECT COUNT(m) FROM Musical m WHERE m.startDate >= :startDate AND m.startDate <= :endDate")
     long countByStartDateBetween(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    List<Musical> findByKopisIdIsNotNull(String kopisId, Sort sort);
+
+    List<Musical> findByKopisIdIsNotNull();
 }

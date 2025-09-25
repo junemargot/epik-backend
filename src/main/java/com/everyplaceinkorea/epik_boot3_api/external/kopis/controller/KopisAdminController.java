@@ -1,10 +1,6 @@
 package com.everyplaceinkorea.epik_boot3_api.external.kopis.controller;
 
-import com.everyplaceinkorea.epik_boot3_api.entity.concert.Concert;
-import com.everyplaceinkorea.epik_boot3_api.entity.musical.Musical;
-import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.KopisPerformanceDto;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.service.KopisDataSyncService;
-import com.everyplaceinkorea.epik_boot3_api.external.kopis.scheduler.KopisSchedulerService;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.SyncResult;
 import com.everyplaceinkorea.epik_boot3_api.repository.concert.ConcertRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.musical.MusicalRepository;
@@ -15,9 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -27,7 +21,6 @@ import java.util.Map;
 public class KopisAdminController {
 
     private final KopisDataSyncService syncService;
-    private final KopisSchedulerService schedulerService;
     private final ConcertRepository concertRepository;
     private final MusicalRepository musicalRepository;
 

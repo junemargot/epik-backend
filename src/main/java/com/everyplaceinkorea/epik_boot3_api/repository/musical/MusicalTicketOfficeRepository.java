@@ -1,5 +1,6 @@
 package com.everyplaceinkorea.epik_boot3_api.repository.musical;
 
+import com.everyplaceinkorea.epik_boot3_api.entity.musical.Musical;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.MusicalTicketOffice;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -17,4 +18,6 @@ public interface MusicalTicketOfficeRepository extends JpaRepository<MusicalTick
     @Transactional
     @Query("DELETE FROM MusicalTicketOffice m WHERE m.musical.id = :musicalId")
     void deleteByMusicalId(@Param("musicalId") Long id);
+
+    List<MusicalTicketOffice> findByMusical(Musical musical);
 }

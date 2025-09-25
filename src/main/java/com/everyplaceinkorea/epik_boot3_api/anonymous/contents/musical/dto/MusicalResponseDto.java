@@ -4,6 +4,8 @@ import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import lombok.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -27,6 +29,11 @@ public class MusicalResponseDto {
     
     private String imageUrl;         // 실제 이미지 URL (추가)
     private DataSource dataSource;   // 데이터 출처
+
+    // JSON 예매처 정보 추가
+    private Map<String, String> ticketOffiecs;
+    private LocalDateTime ticketOfficesUpdatedAt;
+    private String ticketOfficesSource;
 
     // 이미지 URL을 동적으로 생성하는 메서드
     public String getImageUrl() {

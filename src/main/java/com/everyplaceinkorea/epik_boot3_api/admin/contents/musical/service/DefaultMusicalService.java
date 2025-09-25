@@ -35,6 +35,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -206,7 +207,7 @@ public class DefaultMusicalService implements MusicalService {
 
         // 티켓 
         List<MusicalTicketPrice> allByMusicalTicketPrice = musicalTicketPriceRepository.findAllByMusicalId(musical.getId());
-        // 예매처 
+        // 예매처 (수기입력)
         List<MusicalTicketOffice> allByMusicalTicketOffice = musicalTicketOfficeRepository.findAllByMusicalId(musical.getId());
 
         MusicalResponseDto responseDto = modelMapper.map(musical, MusicalResponseDto.class);
@@ -217,8 +218,8 @@ public class DefaultMusicalService implements MusicalService {
         // 이미지 처리 로직
         handleMusicalImages(musical, responseDto);
 
-        // 티켓 정보 통합 처리 (추가)
-        handleTicketInformation(musical, responseDto);
+        // 티켓 정보 통합 처리 (수정됨)
+        handleTicketInformation(musical, responseDto, allByMusicalTicketOffice);
 
         log.info("응답데이터 save파일 네임 = {}", responseDto.getSaveImageName());
         log.info("응답데이터 imageUrl = {}", responseDto.getImageUrl());
@@ -439,9 +440,56 @@ public class DefaultMusicalService implements MusicalService {
     /**
      * 데이터 소수에 따라 티켓 정보 다르게 처리
      */
-    private void handleTicketInformation(Musical musical, MusicalResponseDto responseDto) {
+    private void handleTicketInformation(Musical musical, MusicalResponseDto responseDto, List<MusicalTicketOffice> manualTicketOffices) {
+        // 1. 수기입력 예매처 설정
+        List<MusicalTicketOfficeDto> ticketOfficeDtos = manualTicketOffices
+                .stream()
+                .map(ticketOffice -> modelMapper.map(ticketOffice, MusicalTicketOfficeDto.class))
+                .collect(Collectors.toList());
+        
+        // 2. JSON 예매처 정보를 수기입력 형태로 변환해서 추가
+        Map<String, String> jsonTicketOffices = musical.getTicketOffices();
+        if (jsonTicketOffices != null && !jsonTicketOffices.isEmpty()) {
+            for (Map.Entry<String, String> entry : jsonTicketOffices.entrySet()) {
+                String officeName = entry.getKey();
+                String officeUrl = entry.getValue();
+                
+                // 키 이름을 사용자 친화적으로 변환
+                String displayName = convertOfficeKeyToDisplayName(officeName);
+                
+                MusicalTicketOfficeDto jsonOfficeDto = new MusicalTicketOfficeDto();
+                jsonOfficeDto.setName(displayName);
+                jsonOfficeDto.setLink(officeUrl);
+                // ID는 null (JSON 예매처는 DB에 별도 저장되지 않음)
+                
+                ticketOfficeDtos.add(jsonOfficeDto);
+                
+                log.info("JSON 예매처 추가됨: {} -> {}", displayName, officeUrl);
+            }
+        }
+        
+        responseDto.setTicketOffices(ticketOfficeDtos);
+        
+        // KOPIS 데이터인 경우 추가 처리
         if(musical.getDataSource() == DataSource.KOPIS_API) {
             handleKopisTicketData(musical, responseDto);
+        }
+    }
+    
+    /**
+     * 예매처 키를 사용자 친화적 이름으로 변환
+     */
+    private String convertOfficeKeyToDisplayName(String key) {
+        switch(key.toLowerCase()) {
+            case "interpark": return "인터파크";
+            case "yes24": return "YES24";
+            case "ticketlink": return "티켓링크";
+            case "timeticket": return "타임티켓";
+            case "melon": return "멜론티켓";
+            case "sac": return "예술의전당";
+            case "lotteconcerthall": return "롯데콘서트홀";
+            case "n": return "네이버예약";
+            default: return key; // 알 수 없는 키는 그대로 표시
         }
     }
 
