@@ -39,7 +39,7 @@ public class KopisAdminController {
             String endDate = now.withDayOfMonth(now.lengthOfMonth()).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
 
             // 전체 동기화 실행
-            SyncResult concertResult = syncService.syncAllConcerts(startDate, endDate);
+            SyncResult concertResult = syncService.syncConcerts(startDate, endDate);
             SyncResult musicalResult = syncService.syncMusicals(startDate, endDate);
 
             // 결과 통합
@@ -58,37 +58,11 @@ public class KopisAdminController {
             ));
 
             return ResponseEntity.ok(response);
+
         } catch (Exception e) {
             log.error("KOPIS 데이터 동기화 실패: {}", e.getMessage());
             response.put("success", false);
             response.put("message", "동기화 중 오류가 발생했습니다: " + e.getMessage());
-
-            return ResponseEntity.internalServerError().body(response);
-        }
-    }
-
-    /**
-     * 데이터베이스 연결 테스트
-     */
-    @GetMapping("/test-db")
-    public ResponseEntity<Map<String, Object>> testDatabase() {
-        Map<String, Object> response = new HashMap<>();
-
-        try {
-            log.info("데이터베이스 연결 테스트 시작");
-
-            // 기본 엔티티들 조회 테스트
-            long memberCount = syncService.testDatabaseConnection();
-
-            response.put("success", true);
-            response.put("message", "데이터베이스 연결 정상");
-            response.put("memberCount", memberCount);
-
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("데이터베이스 테스트 실패: {}", e.getMessage(), e);
-            response.put("success", false);
-            response.put("message", "데이터베이스 연결 실패: " + e.getMessage());
 
             return ResponseEntity.internalServerError().body(response);
         }
@@ -126,44 +100,6 @@ public class KopisAdminController {
         }
     }
 
-    @GetMapping("/test-genre/{genreCode}")
-    public ResponseEntity<Map<String, Object>> testGenreApi(@PathVariable String genreCode) {
-        Map<String, Object> response = new HashMap<>();
-
-        try {
-            log.info("장르별 API 테스트 시작: {}", genreCode);
-
-            // 고정된 과거 날짜로 테스트
-            String xmlResponse = syncService.testKopisApiCallByGenre("20240801", "20240831", 1, 10, genreCode);
-
-            response.put("success", true);
-            response.put("genreCode", genreCode);
-            response.put("responseLength", xmlResponse != null ? xmlResponse.length() : 0);
-            response.put("responsePreview", xmlResponse != null && xmlResponse.length() > 200 ?
-                    xmlResponse.substring(0, 200) : xmlResponse);
-
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("장르별 API 테스트 실패: {}", e.getMessage());
-            response.put("success", false);
-            response.put("message", "장르별 API 테스트 실패: " + e.getMessage());
-
-            return ResponseEntity.internalServerError().body(response);
-        }
-    }
-
-    /**
-     * 테스트용 엔드포인트
-     */
-    @GetMapping("/test")
-    public ResponseEntity<Map<String, Object>> test() {
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("message", "KOPIS 컨트롤러가 정상 작동합니다.");
-        response.put("timestamp", java.time.LocalDateTime.now());
-        return ResponseEntity.ok(response);
-    }
-
     /**
      * 콘서트 데이터만 동기화
      */
@@ -177,7 +113,7 @@ public class KopisAdminController {
             String endDate = now.withDayOfMonth(now.lengthOfMonth()).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
             log.info("콘서트 동기화 날짜 범위: {} ~ {}", startDate, endDate);
 
-            SyncResult result = syncService.syncAllConcerts(startDate, endDate);
+            SyncResult result = syncService.syncConcerts(startDate, endDate);
             log.info("콘서트 동기화 완료 - 응답 데이터: {}", result);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
@@ -287,40 +223,5 @@ public class KopisAdminController {
 
             return ResponseEntity.internalServerError().body(response);
         }
-    }
-
-    @PostMapping("/test-sync/limited")
-    public ResponseEntity<Map<String, Object>> testSyncLimited() {
-        Map<String, Object> response = new HashMap<>();
-
-        try {
-            // 테스트용: 뮤지컬 1페이지(100건)만 처리
-            String xmlResponse = syncService.testKopisApiCallByGenre("20250901", "20250930", 1, 5, "GGGA"); // 5건만
-
-            response.put("success", true);
-            response.put("message", "제한된 동기화 테스트 완료");
-
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            response.put("success", false);
-            response.put("message", "테스트 실패: " + e.getMessage());
-
-            return ResponseEntity.internalServerError().body(response);
-        }
-    }
-
-
-    @GetMapping("/parse-ticket-price")
-    public ResponseEntity<?> testTicketPriceParsing() {
-        String testPrice = "R석 80,000원, S석 60,000원, A석 50,000원, B석 30,000원, C석 20,000원";
-
-        // private 메서드를 테스트하기 위해 reflection 사용하거나
-        // 임시로 public 메서드로 만들어서 테스트
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("originalPrice", testPrice);
-        result.put("parsedPrices", "테스트 결과"); // 실제 파싱 결과 넣기
-
-        return ResponseEntity.ok(result);
     }
 }

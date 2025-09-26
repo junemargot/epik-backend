@@ -22,15 +22,18 @@ public class KopisDataSyncScheduler {
     @Scheduled(cron = "${kopis.sync.cron:0 0 2 * * ?}")
     public void scheduledDataSync() {
         log.info("=== KOPIS 데이터 정기 동기화 시작 ===");
-        
+
         LocalDate now = LocalDate.now();
-        String startDate = now.withDayOfMonth(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        String endDate = now.withDayOfMonth(now.lengthOfMonth()).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        
+
+        String startDate = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String endDate = now.plusMonths(6).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+
+        log.info("동기화 기간: {} ~ {} (오늘부터 6개월)", startDate, endDate);
+
         try {
-            syncService.syncAllConcerts(startDate, endDate);
+            syncService.syncConcerts(startDate, endDate);
             syncService.syncMusicals(startDate, endDate);
-            
+
             log.info("=== KOPIS 데이터 정기 동기화 완료 ===");
 
         } catch (Exception e) {
