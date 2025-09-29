@@ -17,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -34,11 +36,23 @@ public class KopisDataSyncService {
     private final RegionRepository regionRepository;
     private final MemberRepository memberRepository;
 
+    public SyncResult syncConcerts() {
+        log.info("=== Concert 기본 동기화 시작 ===");
+
+        LocalDate now = LocalDate.now();
+        String startDate = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String endDate = now.plusMonths(6).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+
+        log.info("동기화 기간: {} ~ {} (오늘부터 6개월)", startDate, endDate);
+
+        return syncConcerts(startDate, endDate);
+    }
+
     /**
      * 전체 Concert 동기화: 장르별 개별 조회
      */
     public SyncResult syncConcerts(String startDate, String endDate) {
-        log.info("Concert 동기화 시작: {} ~ {}", startDate, endDate);
+        log.info("=== Concert 동기화 시작: {} ~ {} ===", startDate, endDate);
         SyncResult result = new SyncResult("CONCERT");
 
         try {
@@ -46,13 +60,15 @@ public class KopisDataSyncService {
             Region defaultRegion = getDefaultRegion();
 
             String[] concertCodes = KopisGenreUtil.ConcertGenre.getAllCodes();
+
             // 장르별 조회 및 처리
             for (String genreCode : concertCodes) {
                 String genreName = KopisGenreUtil.getConcertGenreName(genreCode);
                 log.info("콘서트 장르 {} 조회 시작 - {}", genreCode, genreName);
 
                 try {
-                    syncByGenrePaginated(genreCode, startDate, endDate, systemMember, defaultRegion, result, "CONCERT");
+                    syncByGenrePaginated(genreCode, startDate, endDate,
+                            systemMember, defaultRegion, result, "CONCERT");
 
                 } catch (Exception e) {
                     log.error("콘서트 장르 {} 동기화 실패: {}", genreCode, e.getMessage(), e);
@@ -75,11 +91,23 @@ public class KopisDataSyncService {
         }
     }
 
+    public SyncResult syncMusicals() {
+        log.info("=== Musical 기본 동기화 시작 ===");
+
+        LocalDate now = LocalDate.now();
+        String startDate = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String endDate = now.plusMonths(6).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+
+        log.info("동기화 기간: {} ~ {} (오늘부터 6개월)", startDate, endDate);
+
+        return syncMusicals(startDate, endDate);
+    }
+
     /**
      * 전체 Musical 동기화
      */
     public SyncResult syncMusicals(String startDate, String endDate) {
-        log.info("Musical 동기화 시작: {} ~ {}", startDate, endDate);
+        log.info("=== Musical 동기화 시작: {} ~ {} ===", startDate, endDate);
         SyncResult result = new SyncResult("MUSICAL");
 
         try {
@@ -207,7 +235,7 @@ public class KopisDataSyncService {
                     } else {
                         for (KopisPerformanceDto performance : performances) {
                             try {
-                                syncSingleConcertEnhanced(performance, systemMember, defaultRegion, result);
+                                syncSingleConcert(performance, systemMember, defaultRegion, result);
                                 totalProcessedForGenre++;
                             } catch (Exception e) {
                                 log.error("개별 콘서트 처리 실패: ID={}, 오류={}",
@@ -269,7 +297,7 @@ public class KopisDataSyncService {
             if (existingConcert.isPresent()) {
                 // 기존 데이터 업데이트
                 concert = existingConcert.get();
-//                concert.updateFromKopisData(enhancedDto);
+                concert.updateFromKopisData(enhancedDto);
 
                 // 상세 정보가 있으면 추가 업데이트
                 if (hasDetailInfo(enhancedDto)) {
@@ -308,8 +336,7 @@ public class KopisDataSyncService {
     /**
      * 개별 콘서트 동기화
      */
-    private void syncSingleConcert(KopisPerformanceDto dto, Member systemMember,
-                                   Region defaultRegion, SyncResult result) {
+    private void syncSingleConcert(KopisPerformanceDto dto, Member systemMember, Region defaultRegion, SyncResult result) {
         try {
             // 1. 상세 정보 추가 조회
             String detailXml = kopisApiService.getPerformanceDetail(dto.getMt20id());
@@ -353,8 +380,71 @@ public class KopisDataSyncService {
 
             concertRepository.save(concert);
         } catch (Exception e) {
-            log.error("공연 상세 정보 처리 실패: {}", dto.getMt20id(), e.getMessage());
-            result.addFailure("공연 ID " + dto.getMt20id() + "처리 실패: " + e.getMessage());
+            log.error("콘서트 동기화 실패: KOPIS_ID={}, 오류={}", dto.getMt20id(), e.getMessage(), e);
+            result.addFailure("콘서트 ID " + dto.getMt20id() + " 처리 실패: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 상세 정보 누락 여부 확인 (기존 데이터용)
+     */
+    private boolean isDetailInfoMissing(Concert concert) {
+        // 상세 정보 필드들이 비어있는지 확인
+        boolean missingAgeRestriction = isEmptyString(concert.getAgeRestriction());
+        boolean missingRuntime = isEmptyString(concert.getRunningTime());
+        boolean missingTicketPrice = isEmptyString(concert.getTicketPrice());
+        boolean missingInfoImages = isEmptyString(concert.getDetailImages());
+
+        boolean needsDetail = missingAgeRestriction || missingRuntime || missingTicketPrice || missingInfoImages;
+
+        if(needsDetail) {
+            log.debug("상세 정보 필요 - 관람연령: {}, 런타임: {}, 티켓가격: {}, 상세이미지: {}",
+                    missingAgeRestriction, missingRuntime, missingTicketPrice, missingInfoImages);
+        }
+
+        return needsDetail;
+    }
+
+    /**
+     * 신규 데이터의 상세 정보 조회 필요성 판단
+     */
+    private boolean shouldFetchDetailForNew(KopisPerformanceDto dto) {
+
+        // 전략 1: 모든 신규 데이터는 상세 정보 조회
+        return true;
+
+        // 전략 2: 중요한 공연만 상세 정보 조회 (성능 우선)
+//        return isImportantPerformance(dto);
+
+        // 전략 3: 기본 정보만으로 충분한지 판단
+        // return hasInsufficientBasicInfo(dto);
+    }
+
+    /**
+     * 상세 정보 조회 및 적용
+     */
+    private void fetchAndApplyDetailInfo(Concert concert, String kopisId) {
+        try {
+            log.debug("상세 정보 조회 시작: {}", kopisId);
+
+            String detailXml = kopisApiService.getPerformanceDetail(kopisId);
+
+            if(detailXml != null) {
+                List<KopisPerformanceDto> detailList = parseXmlToPerformanceList(detailXml);
+                if(!detailList.isEmpty()) {
+                    KopisPerformanceDto detailInfo = detailList.get(0);
+                    concert.updateFromKopisDetailData(detailInfo);
+
+                    log.debug("상세 정보 적용 완료: {}", concert.getTitle());
+                } else {
+                    log.warn("상세 정보 파싱 결과 없음: {}", kopisId);
+                }
+            } else {
+                log.warn("상세 정보 응답 없음: {}", kopisId);
+            }
+
+        } catch (Exception e) {
+            log.warn("상세 정보 조회 실패: {}, 기본 정보만으로 진행 - {}", kopisId, e.getMessage());
         }
     }
 
@@ -366,12 +456,7 @@ public class KopisDataSyncService {
     /**
      * 개별 뮤지컬 동기화
      */
-    private void syncSingleMusical(
-            KopisPerformanceDto dto,
-            Member systemMember,
-            Region defaultRegion,
-            SyncResult result) {
-
+    private void syncSingleMusical(KopisPerformanceDto dto, Member systemMember, Region defaultRegion, SyncResult result) {
         try {
             // 1. 상세 정보 추가 조회
             String detailXml = kopisApiService.getPerformanceDetail(dto.getMt20id());
@@ -639,8 +724,6 @@ public class KopisDataSyncService {
         return kopisApiService.getPerformanceList(startDate, endDate, page, rows);
     }
 
-
-
     /**
      * KOPIS 상세 정보 XML 직접 조회 (디버깅용)
      */
@@ -807,6 +890,10 @@ public class KopisDataSyncService {
      */
     private boolean isValidString(String str) {
         return str != null && !str.trim().isEmpty();
+    }
+
+    private boolean isEmptyString(String str) {
+        return str == null || str.trim().isEmpty() || "null".equals(str);
     }
 
     /**

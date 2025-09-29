@@ -106,18 +106,18 @@ public class KopisAdminController {
     @PostMapping("/sync/concerts")
     public ResponseEntity<SyncResult> syncConcerts() {
         try {
-            log.info("관리자 요청: 콘서트 KOPIS 데이터 동기화");
+            log.info("=== 관리자 요청: 콘서트 KOPIS 데이터 동기화 ===");
 
-            LocalDate now = LocalDate.now();
-            String startDate = now.withDayOfMonth(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-            String endDate = now.withDayOfMonth(now.lengthOfMonth()).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-            log.info("콘서트 동기화 날짜 범위: {} ~ {}", startDate, endDate);
+            SyncResult result = syncService.syncConcerts();
 
-            SyncResult result = syncService.syncConcerts(startDate, endDate);
-            log.info("콘서트 동기화 완료 - 응답 데이터: {}", result);
+            log.info("콘서트 동기화 완료 - 처리 결과: 총 {}건 (성공: {}, 실패: {})",
+                    result.getTotalProcessed(), result.getSuccessCount(), result.getFailureCount());
+
             return ResponseEntity.ok(result);
+
         } catch (Exception e) {
-            log.error("콘서트 데이터 동기화 실패: {}", e.getMessage());
+            log.error("콘서트 데이터 동기화 실패: {}", e.getMessage(), e);
+
             SyncResult errorResult = new SyncResult("CONCERT");
             errorResult.addFailure("콘서트 동기화 실패: " + e.getMessage());
             errorResult.complete();
@@ -132,18 +132,18 @@ public class KopisAdminController {
     @PostMapping("/sync/musicals")
     public ResponseEntity<SyncResult> syncMusicals() {
         try {
-            log.info("관리자 요청: 뮤지컬 KOPIS 데이터 동기화");
+            log.info("=== 관리자 요청: 뮤지컬 KOPIS 데이터 동기화 ===");
 
-            LocalDate now = LocalDate.now();
-            String startDate = now.withDayOfMonth(1).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-            String endDate = now.withDayOfMonth(now.lengthOfMonth()).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-            log.info("뮤지컬 동기화 날짜 범위: {} ~ {}", startDate, endDate);
+            SyncResult result = syncService.syncMusicals();
 
-            SyncResult result = syncService.syncMusicals(startDate, endDate);
-            log.info("뮤지컬 동기화 완료 - 응답 데이터: {}", result);
+            log.info("뮤지컬 동기화 완료 - 처리 결과: 총 {}건 (성공: {}, 실패: {})",
+                    result.getTotalProcessed(), result.getSuccessCount(), result.getFailureCount());
+
             return ResponseEntity.ok(result);
+
         } catch (Exception e) {
             log.error("뮤지컬 데이터 동기화 실패: {}", e.getMessage());
+
             SyncResult errorResult = new SyncResult("MUSICAL");
             errorResult.addFailure("뮤지컬 동기화 실패: " + e.getMessage());
             errorResult.complete();
