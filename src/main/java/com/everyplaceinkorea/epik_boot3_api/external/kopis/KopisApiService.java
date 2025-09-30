@@ -11,7 +11,6 @@ import java.time.Duration;
 @Slf4j
 @Service
 public class KopisApiService {
-    
     private final WebClient webClient;
     private final KopisApiConfig kopisApiConfig;
     
@@ -26,7 +25,7 @@ public class KopisApiService {
     }
 
     /**
-     * 공연 목록 조회
+     * KOPIS 공연 목록 조회
      * @param stDate
      * @param edDate
      * @param cPage
@@ -69,12 +68,12 @@ public class KopisApiService {
                     log.info("응답 null 여부: {}", finalUrl == null);
                     log.info("응답 길이: {}", finalUrl != null ? finalUrl.length() : 0);
 
-                    if (finalUrl != null && finalUrl.length() > 0) {
+                    if (finalUrl != null && !finalUrl.isEmpty()) {
                         log.info("응답 시작 부분 (200자): {}",
                                 finalUrl.length() > 200 ? finalUrl.substring(0, 200) : finalUrl);
                     }
-
                     return finalUrl;
+
         } catch(Exception e) {
             log.error("KOPIS API 호출 실패 상세: {}", e.getMessage(), e);
             throw new RuntimeException("KOPIS API 호출 실패:", e);
@@ -98,7 +97,7 @@ public class KopisApiService {
                             .queryParam("eddate", edDate)
                             .queryParam("cpage", cPage)
                             .queryParam("rows", rows)
-                            .queryParam("shcate", shcate)  // 장르 코드 파라미터 추가
+                            .queryParam("shcate", shcate)
                             .build())
                     .retrieve()
                     .bodyToMono(String.class)
@@ -107,6 +106,7 @@ public class KopisApiService {
 
             log.info("장르 {} 응답 길이: {}", shcate, response != null ? response.length() : 0);
             return response;
+
         } catch(Exception e) {
             log.error("KOPIS API 장르별 호출 실패 - 장르: {}, 에러: {}", shcate, e.getMessage());
             throw new RuntimeException("KOPIS API 장르별 호출 실패:", e);
@@ -124,6 +124,7 @@ public class KopisApiService {
                     .bodyToMono(String.class)
                     .timeout(Duration.ofMillis(kopisApiConfig.getApi().getTimeout()))
                     .block();
+
         } catch(Exception e) {
             log.error("KOPIS 상세정보 조회 실패: {}", e.getMessage());
             throw new RuntimeException("KOPIS 상세정보 조회 실패", e);
@@ -153,6 +154,7 @@ public class KopisApiService {
 
       log.debug("공연 시설 목록 응답 길이: {}", response != null ? response.length() : 0);
       return response;
+
     } catch(Exception e) {
       log.error("KOPIS 공연시설목록 조회 실패: {}", e.getMessage());
       throw new RuntimeException("KOPIS 공연시설목록조회 실패", e);
@@ -179,6 +181,7 @@ public class KopisApiService {
 
       log.debug("공연시설상세 응답 길이: {}", response != null ? response.length() : 0);
       return response;
+
     } catch(Exception e) {
       log.error("KOPIS 공연시설상세조회 실패 - 시설ID: {}, 에러: {}", facilityId, e.getMessage());
       return null; // 실패해도 계속 진행
