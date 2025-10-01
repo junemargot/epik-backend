@@ -88,4 +88,6 @@ public interface MusicalRepository extends JpaRepository<Musical, Long> {
     List<Musical> findByKopisIdIsNotNull(String kopisId, Sort sort);
 
     List<Musical> findByKopisIdIsNotNull();
+
+    boolean existsByKopisId(String kopisId);
 }
