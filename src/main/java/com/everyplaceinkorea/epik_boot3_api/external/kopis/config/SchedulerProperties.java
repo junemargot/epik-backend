@@ -2,8 +2,10 @@ package com.everyplaceinkorea.epik_boot3_api.external.kopis.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 @Data
+@Component
 @ConfigurationProperties(prefix = "scraping.scheduler")
 public class SchedulerProperties {
 
