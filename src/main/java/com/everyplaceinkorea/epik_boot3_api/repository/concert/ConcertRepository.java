@@ -42,7 +42,9 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
   List<Concert> findActiveConcertByRandom(@Param("today") LocalDate today);
 
   Optional<Concert> findByKopisId(String kopisId);
+
   List<Concert> findByDataSource(DataSource dataSource);
+
   List<Concert> findByDataSourceAndLastSyncedAfter(DataSource dataSource, LocalDateTime dateTime);
 
   @Query("SELECT c FROM Concert c WHERE c.startDate >= :startDate AND c.endDate <= :endDate")
@@ -55,4 +57,6 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
   long countByStartDateBetween(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 
   List<Concert> findByKopisIdIsNotNull();
+
+  boolean existsByKopisId(String kopisId);
 }
