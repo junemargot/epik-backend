@@ -15,7 +15,7 @@ public class KopisFacilityDto {
   private String gugunm;    // 구군명
   private String telno;     // 전화번호
   private String relateurl; // 홈페이지
-  private String la;        // 위도
-  private String lo;        // 경도
+  private String latitude;  // 위도
+  private String longitude; // 경도
   private List<KopisHallDto> halls;  // 산하 공연장 목록
 }
