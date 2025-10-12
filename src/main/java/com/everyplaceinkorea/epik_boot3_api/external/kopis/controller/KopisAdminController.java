@@ -182,6 +182,18 @@ public class KopisAdminController {
         return ResponseEntity.ok("Musical Facility 마이그레이션 완료");
     }
 
+    @PostMapping("/migrate/concert/halls")
+    public ResponseEntity<String> migrateConcertHalls() {
+        syncService.rematchConcertHalls();
+        return ResponseEntity.ok("Concert Hall 마이그레이션 완료");
+    }
+
+    @PostMapping("/migrate/musical/halls")
+    public ResponseEntity<String> migrateMusicalHalls() {
+        syncService.rematchMusicalHalls();
+        return ResponseEntity.ok("Musical Hall 마이그레이션 완료");
+    }
+
     @GetMapping("/test/facility/{facilityId}")
     public ResponseEntity<Map<String, Object>> testFacilityApi(@PathVariable String facilityId) {
         Map<String, Object> response = new HashMap<>();
@@ -273,6 +285,33 @@ public class KopisAdminController {
             response.put("success", false);
             response.put("error", e.getMessage());
             return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    /*
+    * 기존 Musical 주소를 Facility 주소로 일괄 마이그레이션
+    */
+    @PostMapping("/update/musical/address")
+    public ResponseEntity<String> updateMusicalAddress() {
+        try {
+            syncService.updateMusicalAddressFromFacility();
+            return ResponseEntity.ok("Musical 주소 업데이트 완료");
+        } catch (Exception e) {
+            log.error("Musical 주소 업데이트 실패: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body("업데이트 실패: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/update/concert/address")
+    public ResponseEntity<String> updateConcertAddress() {
+        try {
+            syncService.updateConcertAddressFromFacility();
+            return ResponseEntity.ok("Concert 주소 업데이트 완료");
+        } catch (Exception e) {
+            log.error("Concert 주소 업데이트 실패: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError()
+                    .body("업데이트 실패: " + e.getMessage());
         }
     }
 }
