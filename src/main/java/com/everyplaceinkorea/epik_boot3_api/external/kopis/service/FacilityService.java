@@ -11,6 +11,7 @@ import com.everyplaceinkorea.epik_boot3_api.repository.HallRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -35,84 +36,102 @@ public class FacilityService {
    * @param kopisFacilityId
    * @return
    */
-  @Transactional
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
   public Facility syncFacility(String kopisFacilityId) {
     log.info("시설 동기화 시작: {}", kopisFacilityId);
 
     try {
-      // 1. KOPIS API 호출
+      // 1. KOPIS API 호출 및 파싱
       String xmlResponse = kopisApiService.getFacilityDetail(kopisFacilityId);
-      if(xmlResponse == null || xmlResponse.trim().isEmpty()) {
-        log.warn("시설 상세 정보 조회 실패: {}", kopisFacilityId);
+      if (xmlResponse == null || xmlResponse.trim().isEmpty()) {
+        log.warn("시설 API 응답 없음: {}", kopisFacilityId);
         return null;
       }
-
-      // 2. XML 파싱
       KopisFacilityDto dto = parseFacilityFromXml(xmlResponse);
-      if(dto == null) {
-        log.warn("시설 정보 파싱 실패: {}", kopisFacilityId);
+      if (dto == null) {
+        log.warn("시설 파싱 실패: {}", kopisFacilityId);
         return null;
       }
 
-      // 3. Facility 생성/업데이트
+      // 2. Facility 엔티티 찾기 또는 생성
       Facility facility = facilityRepository.findByFacilityId(dto.getMt10id())
-              .orElse(new Facility());
+              .orElseGet(() -> {
+                Facility newFacility = new Facility();
+                newFacility.setFacilityId(dto.getMt10id()); // 새 엔티티에 KOPIS ID 설정
+                return newFacility;
+              });
 
-      facility.setFacilityId(dto.getMt10id());
+      // 3. Facility 정보 업데이트
       facility.setName(dto.getFcltynm());
       facility.setAddress(dto.getAdres());
-      facility.setLatitude(parseDouble(dto.getLatitude()));
-      facility.setLongitude(parseDouble(dto.getLongitude()));
+      facility.setLatitude(parseCoordinate(dto.getLatitude()));
+      facility.setLongitude(parseCoordinate(dto.getLongitude()));
       facility.setTel(dto.getTelno());
       facility.setUrl(dto.getRelateurl());
       facility.setDataSource(DataSource.KOPIS_API);
       facility.setLastSynced(LocalDateTime.now());
-      facilityRepository.save(facility);
-      log.info("시설 저장 완료: {} ({})", facility.getName(), facility.getFacilityId());
 
-      // 4. Hall 동기화
+      // 4. Facility 먼저 저장 (ID 생성)
+      Facility savedFacility = facilityRepository.saveAndFlush(facility);
+      log.info("✅ 시설 저장: {} (ID={})", savedFacility.getName(), savedFacility.getId());
+
+      // 5. 별도 메서드로 Hall 동기화 (새 영속성 컨텍스트)
       if(dto.getHalls() != null && !dto.getHalls().isEmpty()) {
-        syncHalls(facility, dto.getHalls());
+        syncHallsWithFacility(savedFacility.getId(), dto.getHalls());
       }
-
-      return facility;
+      return savedFacility;
 
     } catch (Exception e) {
-      log.error("시설 동기화 실패: {}, 에러: {}", kopisFacilityId, e.getMessage(), e);
+      log.error("❌ 시설 동기화 실패: {}, 에러: {}", kopisFacilityId, e.getMessage(), e);
+      // 예외를 다시 던져서 트랜잭션이 롤백되도록 보장
       return null;
     }
   }
 
   /**
-   * 시설의 공연장 정보 동기화
-   * @param facility
-   * @param hallDtos
+   * Hall 동기화 (별도 트랜잭션)
    */
-  private void syncHalls(Facility facility, List<KopisHallDto> hallDtos) {
-    log.info("공연장 동기화 시작: 시설={}, 공연장={}", facility.getName(), facility.getHalls());
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public void syncHallsWithFacility(Long facilityId, List<KopisHallDto> hallDtos) {
+    try {
+      // Facility를 다시 조회 (깨끗한 영속성 컨텍스트)
+      Facility facility = facilityRepository.findById(facilityId)
+              .orElseThrow(() -> new RuntimeException("Facility not found: " + facilityId));
 
-    for(KopisHallDto hallDto : hallDtos) {
-      try {
-        Hall hall = hallRepository.findByHallId(hallDto.getMt13id())
-                .orElse(new Hall());
+      log.info("Hall 동기화 시작: {} (ID={}), Hall 개수={}",
+              facility.getName(), facilityId, hallDtos.size());
 
-        hall.setHallId(hallDto.getMt13id());
-        hall.setName(hallDto.getPrfplcnm());
-        hall.setSeatCount(parseSeatScale(hallDto.getSeatscale()));
-        hall.setFacility(facility);
-        hall.setDataSource(DataSource.KOPIS_API);
-        hall.setLastSynced(LocalDateTime.now());
-        hallRepository.save(hall);
-        log.debug("공연장 저장 완료: {} ({}석)", hall.getName(), hall.getSeatCount());
+      int hallCount = 0;
+      for (KopisHallDto hallDto : hallDtos) {
+        try {
+          Hall hall = hallRepository.findByHallId(hallDto.getMt13id())
+                  .orElse(new Hall());
 
-      } catch (Exception e) {
-        log.error("공연장 동기화 실패: {}, 에러: {}", hallDto.getPrfplcnm(), e.getMessage(), e);
+          hall.setHallId(hallDto.getMt13id());
+          hall.setName(hallDto.getPrfplcnm());
+          hall.setSeatCount(parseSeatScale(hallDto.getSeatscale()));
+          hall.setDataSource(DataSource.KOPIS_API);
+          hall.setLastSynced(LocalDateTime.now());
+          hall.setFacility(facility);
+
+          hallRepository.save(hall);
+          hallCount++;
+          log.debug("  ✅ Hall 저장: {}", hall.getName());
+
+        } catch (Exception e) {
+          log.error("  ❌ Hall 저장 실패: {}, 에러: {}", hallDto.getPrfplcnm(), e.getMessage());
+        }
       }
+
+      log.info("✅ Hall {} 개 저장 완료", hallCount);
+
+    } catch (Exception e) {
+      log.error("❌ Hall 동기화 실패: facilityId={}, 에러: {}", facilityId, e.getMessage(), e);
     }
-    log.info("공연장 동기화 완료: 시설={}", facility.getName());
   }
 
-  private KopisFacilityDto parseFacilityFromXml(String xmlResponse) {
+  // public -> private 수정할것
+  public KopisFacilityDto parseFacilityFromXml(String xmlResponse) {
     try {
       // <db> 블록 추출
       Pattern dbPattern = Pattern.compile("<db>(.*?)</db>", Pattern.DOTALL);
@@ -172,27 +191,32 @@ public class FacilityService {
     List<KopisHallDto> halls = new ArrayList<>();
 
     try {
-      // mt13id, prfplcnm, seatscale은 반복되는 구조
-      // 각 공연장마다 이 3개 태그가 순서대로 나타남
-      Pattern mt13Pattern = Pattern.compile("<mt13id>(.*?)</mt13id>", Pattern.DOTALL);
-      Pattern prfplcnmPattern = Pattern.compile("<prfplcnm>(.*?)</prfplcnm>", Pattern.DOTALL);
-      Pattern seatscalePattern = Pattern.compile("<seatscale>(.*?)</seatscale>", Pattern.DOTALL);
+      // mt13s 블록 추출
+      Pattern mt13sPattern = Pattern.compile("<mt13s>(.*?)</mt13s>", Pattern.DOTALL);
+      Matcher mt13sMatcher = mt13sPattern.matcher(dbContent);
+      if(!mt13sMatcher.find()) {
+        log.warn("XML에서 <mt13s> 블록을 찾을 수 없음");
+        return halls;
+      }
 
-      Matcher mt13Matcher = mt13Pattern.matcher(dbContent);
-      Matcher prfplcnmMatcher = prfplcnmPattern.matcher(dbContent);
-      Matcher seatscaleMatcher = seatscalePattern.matcher(dbContent);
+      String mt13sContent = mt13sMatcher.group(1);
+      log.debug("mt13s 블록 추출 완료");
+
+      // mt13 블록 추출
+      Pattern mt13Pattern = Pattern.compile("<mt13>(.*?)</mt13>", Pattern.DOTALL);
+      Matcher mt13Matcher = mt13Pattern.matcher(mt13sContent);
 
       // 각 공연장 정보를 순서대로 매칭
-      while(mt13Matcher.find() && prfplcnmMatcher.find()) {
+      while(mt13Matcher.find()) {
+        String mt13Block = mt13Matcher.group(1);
         KopisHallDto hallDto = new KopisHallDto();
-        hallDto.setMt13id(mt13Matcher.group(1).trim());
-        hallDto.setPrfplcnm(prfplcnmMatcher.group(1).trim());
 
-        if(seatscaleMatcher.find()) {
-          hallDto.setSeatscale(seatscaleMatcher.group(1).trim());
-        }
+        hallDto.setMt13id(extractXmlValue(mt13Block, "mt13id"));
+        hallDto.setPrfplcnm(extractXmlValue(mt13Block,"prfplcnm"));
+        hallDto.setSeatscale(extractXmlValue(mt13Block, "seatscale"));
 
         halls.add(hallDto);
+        log.debug("공연장 파싱: {} (좌석: {})", hallDto.getPrfplcnm(), hallDto.getSeatscale());
       }
 
       log.debug("공연장 {}개 파싱 완료", halls.size());
@@ -209,6 +233,19 @@ public class FacilityService {
       return seatscale != null ? Integer.parseInt(seatscale.trim()) : null;
     } catch (NumberFormatException e) {
       log.warn("좌석 규모 변환 실패: {}", seatscale);
+      return null;
+    }
+  }
+
+  private Double parseCoordinate(String coordinate) {
+    if(coordinate == null || coordinate.trim().isEmpty()) {
+      return null;
+    }
+
+    try {
+      return parseDouble(coordinate.trim());
+    } catch (NumberFormatException e) {
+      log.warn("좌표 변환 실패: {}", coordinate);
       return null;
     }
   }
