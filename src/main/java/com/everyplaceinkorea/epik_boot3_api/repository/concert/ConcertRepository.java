@@ -61,4 +61,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
   boolean existsByKopisId(String kopisId);
 
   List<Concert> findByFacilityIsNull();
+
+  List<Concert> findByFacilityIsNotNullAndHallIsNull();
+
 }
