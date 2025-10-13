@@ -2,6 +2,7 @@ package com.everyplaceinkorea.epik_boot3_api.external.kopis.controller;
 
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.KopisApiService;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.KopisFacilityDto;
+import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.MigrationResult;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.service.FacilityService;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.service.KopisDataSyncService;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.SyncResult;
@@ -25,6 +26,7 @@ public class KopisAdminController {
     private final KopisDataSyncService syncService;
     private final KopisApiService kopisApiService;
     private final FacilityService facilityService;
+    private final KopisDataSyncService kopisDataSyncService;
 
     @PostMapping("/sync/all")
     public ResponseEntity<Map<String, Object>> syncAll() {
@@ -192,6 +194,18 @@ public class KopisAdminController {
     public ResponseEntity<String> migrateMusicalHalls() {
         syncService.rematchMusicalHalls();
         return ResponseEntity.ok("Musical Hall 마이그레이션 완료");
+    }
+
+    @PostMapping("/migrate/concert/resync-venues-and-halls")
+    public ResponseEntity<MigrationResult> migrateConcertResyncVenuesAndHalls() {
+        MigrationResult result = kopisDataSyncService.resyncConcertVenuesAndHalls();
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/migrate/musical/resync-venues-and-halls")
+    public ResponseEntity<MigrationResult> migrateMusicalResyncVenuesAndHalls() {
+        MigrationResult result = kopisDataSyncService.resyncMusicalVenuesAndHalls();
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/test/facility/{facilityId}")
