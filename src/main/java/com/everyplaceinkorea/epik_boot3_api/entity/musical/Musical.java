@@ -1,6 +1,8 @@
 package com.everyplaceinkorea.epik_boot3_api.entity.musical;
 
 import com.everyplaceinkorea.epik_boot3_api.admin.contents.musical.enums.Status;
+import com.everyplaceinkorea.epik_boot3_api.entity.Facility;
+import com.everyplaceinkorea.epik_boot3_api.entity.Hall;
 import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.entity.Region;
@@ -118,6 +120,13 @@ public class Musical {
     @Column(name = "kopis_ticket_offices_source")
     private TicketOfficeSource kopisTicketOfficesSource = TicketOfficeSource.MANUAL;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "facility_id")
+    private Facility facility;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "hall_id")
+    private Hall hall;
 
     public void addMember(Member member) {
         this.member = member;

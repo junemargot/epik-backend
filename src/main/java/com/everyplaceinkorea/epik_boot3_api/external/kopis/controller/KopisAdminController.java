@@ -1,9 +1,14 @@
 package com.everyplaceinkorea.epik_boot3_api.external.kopis.controller;
 
+import com.everyplaceinkorea.epik_boot3_api.external.kopis.KopisApiService;
+import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.KopisFacilityDto;
+import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.MigrationResult;
+import com.everyplaceinkorea.epik_boot3_api.external.kopis.service.FacilityService;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.service.KopisDataSyncService;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.SyncResult;
 import com.everyplaceinkorea.epik_boot3_api.repository.concert.ConcertRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.musical.MusicalRepository;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +25,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class KopisAdminController {
     private final KopisDataSyncService syncService;
+    private final KopisApiService kopisApiService;
+    private final FacilityService facilityService;
 
     @PostMapping("/sync/all")
     public ResponseEntity<Map<String, Object>> syncAll() {
@@ -161,6 +168,113 @@ public class KopisAdminController {
             response.put("success", false);
             response.put("message", "KOPIS API 호출 실패: " + e.getMessage());
 
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    @GetMapping("/test/facility/{facilityId}")
+    public ResponseEntity<Map<String, Object>> testFacilityApi(@PathVariable String facilityId) {
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            log.info("=== Facility API 테스트: {}", facilityId);
+
+            // 1. API 호출
+            String xmlResponse = kopisApiService.getFacilityDetail(facilityId);
+            response.put("success", true);
+            response.put("facilityId", facilityId);
+            response.put("responseLength", xmlResponse != null ? xmlResponse.length() : 0);
+            response.put("xmlResponse", xmlResponse); // 전체 XML 응답
+            log.info("API 응답 길이: {}", xmlResponse != null ? xmlResponse.length() : 0);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Facility API 테스트 실패: {}", e.getMessage(), e);
+            response.put("success", false);
+            response.put("error", e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    /**
+     * Facility 파싱 테스트 (XML -> DTO 변환 확인)
+     */
+    @GetMapping("/test/facility/{facilityId}/parse")
+    public ResponseEntity<Map<String, Object>> testFacilityParse(@PathVariable String facilityId) {
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            log.info("=== Facility 파싱 테스트: {} ===", facilityId);
+
+            // 1. API 호출
+            String xmlResponse = kopisApiService.getFacilityDetail(facilityId);
+
+            if (xmlResponse == null || xmlResponse.isEmpty()) {
+                response.put("success", false);
+                response.put("error", "API 응답 없음");
+                return ResponseEntity.ok(response);
+            }
+
+            // 2. 파싱 시도
+            KopisFacilityDto dto = facilityService.parseFacilityFromXml(xmlResponse);
+
+            response.put("success", true);
+            response.put("facilityId", facilityId);
+            response.put("rawXml", xmlResponse);
+            response.put("parsedDto", dto);
+            response.put("hallCount", dto != null && dto.getHalls() != null ? dto.getHalls().size() : 0);
+
+            log.info("파싱 결과 - 시설명: {}, Hall 개수: {}",
+                    dto != null ? dto.getFcltynm() : "null",
+                    dto != null && dto.getHalls() != null ? dto.getHalls().size() : 0);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Facility 파싱 테스트 실패: {}", e.getMessage(), e);
+            response.put("success", false);
+            response.put("error", e.getMessage());
+            response.put("stackTrace", e.getStackTrace());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    /**
+     * 공연 상세 API 응답 확인용
+     */
+    @GetMapping("/test/performance/{performanceId}")
+    public ResponseEntity<Map<String, Object>> testPerformanceApi(
+            @PathVariable @Pattern(regexp = "^[A-Z]{2}\\d{6}$", message = "공연ID 형식이 올바르지 않습니다 (예: PF123456)")
+            String performanceId) {
+
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            if (performanceId == null || performanceId.trim().isEmpty()) {
+                response.put("success", false);
+                response.put("error", "공연 ID는 필수입니다.");
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            log.info("=== Performance API 테스트: {} ===", performanceId);
+            String xmlResponse = kopisApiService.getPerformanceDetail(performanceId);
+
+            response.put("success", true);
+            response.put("performanceId", performanceId);
+            response.put("responseLength", xmlResponse != null ? xmlResponse.length() : 0);
+            response.put("xmlResponse", xmlResponse);
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("잘못된 요청: {}", e.getMessage());
+            response.put("success", false);
+            response.put("error", "잘못된 공연 ID 형식입니다.");
+            return ResponseEntity.badRequest().body(response);
+
+        } catch (Exception e) {
+            log.error("Performance API 테스트 실패: {}", e.getMessage(), e);
+            response.put("success", false);
+            response.put("error", "API 호출 중 오류가 발생했습니다.");
             return ResponseEntity.internalServerError().body(response);
         }
     }

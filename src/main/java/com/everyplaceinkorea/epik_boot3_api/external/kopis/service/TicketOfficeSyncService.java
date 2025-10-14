@@ -300,7 +300,7 @@ public class TicketOfficeSyncService {
     log.info("테스트 시작시간: {}", startTime);
 
     // 최근 5개만 가져오기 (ID 기준 내림차순)
-    Pageable pageable = PageRequest.of(0, 5, Sort.by("id").descending());
+    Pageable pageable = PageRequest.of(0, 15, Sort.by("id").descending());
     Page<Musical> musicalPage = musicalRepository.findAll(pageable);
     List<Musical> musicals = musicalPage.getContent();
 
@@ -373,7 +373,7 @@ public class TicketOfficeSyncService {
     log.info("콘서트 예매처 테스트 시작시간: {}", startTime);
 
     // 최근 5개만 가져오기 (ID 기준 내림차순)
-    Pageable pageable = PageRequest.of(0, 5, Sort.by("id").descending());
+    Pageable pageable = PageRequest.of(0, 15, Sort.by("id").descending());
     Page<Concert> concertPage = concertRepository.findAll(pageable);
     List<Concert> concerts = concertPage.getContent();
 

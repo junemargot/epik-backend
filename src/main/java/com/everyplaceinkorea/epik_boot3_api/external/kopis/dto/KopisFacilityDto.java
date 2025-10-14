@@ -3,6 +3,8 @@ package com.everyplaceinkorea.epik_boot3_api.external.kopis.dto;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class KopisFacilityDto {
@@ -13,7 +15,7 @@ public class KopisFacilityDto {
   private String gugunm;    // 구군명
   private String telno;     // 전화번호
   private String relateurl; // 홈페이지
-  private String la;        // 위도
-  private String lo;        // 경도
-  private String seatscale; // 좌석 규모
+  private String latitude;  // 위도
+  private String longitude; // 경도
+  private List<KopisHallDto> halls;  // 산하 공연장 목록
 }
