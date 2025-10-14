@@ -8,6 +8,7 @@ import com.everyplaceinkorea.epik_boot3_api.external.kopis.service.KopisDataSync
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.SyncResult;
 import com.everyplaceinkorea.epik_boot3_api.repository.concert.ConcertRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.musical.MusicalRepository;
+import jakarta.validation.constraints.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -26,7 +27,6 @@ public class KopisAdminController {
     private final KopisDataSyncService syncService;
     private final KopisApiService kopisApiService;
     private final FacilityService facilityService;
-    private final KopisDataSyncService kopisDataSyncService;
 
     @PostMapping("/sync/all")
     public ResponseEntity<Map<String, Object>> syncAll() {
@@ -240,28 +240,41 @@ public class KopisAdminController {
     }
 
     /**
-     * Performance Detail API 응답 확인 (공연 상세)
+     * 공연 상세 API 응답 확인용
      */
     @GetMapping("/test/performance/{performanceId}")
-    public ResponseEntity<Map<String, Object>> testPerformanceApi(@PathVariable String performanceId) {
+    public ResponseEntity<Map<String, Object>> testPerformanceApi(
+            @PathVariable @Pattern(regexp = "^[A-Z]{2}\\d{6}$", message = "공연ID 형식이 올바르지 않습니다 (예: PF123456)")
+            String performanceId) {
+
         Map<String, Object> response = new HashMap<>();
 
         try {
-            log.info("=== Performance API 테스트: {} ===", performanceId);
+            if (performanceId == null || performanceId.trim().isEmpty()) {
+                response.put("success", false);
+                response.put("error", "공연 ID는 필수입니다.");
+                return ResponseEntity.badRequest().body(response);
+            }
 
+            log.info("=== Performance API 테스트: {} ===", performanceId);
             String xmlResponse = kopisApiService.getPerformanceDetail(performanceId);
 
             response.put("success", true);
             response.put("performanceId", performanceId);
             response.put("responseLength", xmlResponse != null ? xmlResponse.length() : 0);
             response.put("xmlResponse", xmlResponse);
-
             return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException e) {
+            log.warn("잘못된 요청: {}", e.getMessage());
+            response.put("success", false);
+            response.put("error", "잘못된 공연 ID 형식입니다.");
+            return ResponseEntity.badRequest().body(response);
 
         } catch (Exception e) {
             log.error("Performance API 테스트 실패: {}", e.getMessage(), e);
             response.put("success", false);
-            response.put("error", e.getMessage());
+            response.put("error", "API 호출 중 오류가 발생했습니다.");
             return ResponseEntity.internalServerError().body(response);
         }
     }

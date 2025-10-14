@@ -733,12 +733,15 @@ public class KopisDataSyncService {
             }
 
             // 2. Facility 동기화
-            Facility facility = facilityService.syncFacility(mt10id);
+            Optional<Facility> facilityOpt = facilityService.syncFacility(mt10id);
 
-            if(facility == null) {
+            if(facilityOpt.isEmpty()) {
                 log.warn("Facility 동기화 실패: {}", mt10id);
                 return;
             }
+
+            Facility facility = facilityOpt.get();
+            log.info("Facility 조회 성공: ID={}, Name={}", facility.getId(), facility.getName());
 
             // 4. Concert 또는 Musical에 Facility 설정
             if(performance instanceof Concert) {

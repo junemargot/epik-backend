@@ -10,13 +10,16 @@ import com.everyplaceinkorea.epik_boot3_api.repository.FacilityRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.HallRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.reactive.function.client.WebClientException;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -34,10 +37,10 @@ public class FacilityService {
   /**
    * KOPIS API에서 시설 정보를 가져와 동기화
    * @param kopisFacilityId
-   * @return
+   * @return Facility 엔티티 (Optional)
    */
-  @Transactional(propagation = Propagation.REQUIRES_NEW)
-  public Facility syncFacility(String kopisFacilityId) {
+  @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 30)
+  public Optional<Facility> syncFacility(String kopisFacilityId) {
     log.info("시설 동기화 시작: {}", kopisFacilityId);
 
     try {
@@ -45,12 +48,12 @@ public class FacilityService {
       String xmlResponse = kopisApiService.getFacilityDetail(kopisFacilityId);
       if (xmlResponse == null || xmlResponse.trim().isEmpty()) {
         log.warn("시설 API 응답 없음: {}", kopisFacilityId);
-        return null;
+        return Optional.empty();
       }
       KopisFacilityDto dto = parseFacilityFromXml(xmlResponse);
       if (dto == null) {
         log.warn("시설 파싱 실패: {}", kopisFacilityId);
-        return null;
+        return Optional.empty();
       }
 
       // 2. Facility 엔티티 찾기 또는 생성
@@ -62,30 +65,43 @@ public class FacilityService {
               });
 
       // 3. Facility 정보 업데이트
-      facility.setName(dto.getFcltynm());
-      facility.setAddress(dto.getAdres());
-      facility.setLatitude(parseCoordinate(dto.getLatitude()));
-      facility.setLongitude(parseCoordinate(dto.getLongitude()));
-      facility.setTel(dto.getTelno());
-      facility.setUrl(dto.getRelateurl());
-      facility.setDataSource(DataSource.KOPIS_API);
-      facility.setLastSynced(LocalDateTime.now());
+      updateFacility(facility, dto);
 
       // 4. Facility 먼저 저장 (ID 생성)
       Facility savedFacility = facilityRepository.saveAndFlush(facility);
-      log.info("✅ 시설 저장: {} (ID={})", savedFacility.getName(), savedFacility.getId());
 
       // 5. 별도 메서드로 Hall 동기화 (새 영속성 컨텍스트)
-      if(dto.getHalls() != null && !dto.getHalls().isEmpty()) {
+      if (dto.getHalls() != null && !dto.getHalls().isEmpty()) {
         syncHallsWithFacility(savedFacility.getId(), dto.getHalls());
       }
-      return savedFacility;
+      return Optional.of(savedFacility);
+
+    } catch (DataAccessException e) {
+      log.error("시설 동기화 실패 (DB 오류): facilityId={}", kopisFacilityId, e);
+      throw new RuntimeException("시설 DB 저장 실패: " + kopisFacilityId, e);
+
+    } catch (WebClientException e) {
+      log.error("시설 동기화 실패 (API 오류): facilityId={}", kopisFacilityId, e);
+      return Optional.empty();
 
     } catch (Exception e) {
-      log.error("❌ 시설 동기화 실패: {}, 에러: {}", kopisFacilityId, e.getMessage(), e);
-      // 예외를 다시 던져서 트랜잭션이 롤백되도록 보장
-      return null;
+      log.error("시설 동기화 실패 (예상치 못한 오류): facilityId={}", kopisFacilityId, e);
+      return Optional.empty();
     }
+  }
+
+  /*
+   * Facility 정보 업데이트
+   */
+  private void updateFacility(Facility facility, KopisFacilityDto dto) {
+    facility.setName(dto.getFcltynm());
+    facility.setAddress(dto.getAdres());
+    facility.setLatitude(parseCoordinate(dto.getLatitude()));
+    facility.setLongitude(parseCoordinate(dto.getLongitude()));
+    facility.setTel(dto.getTelno());
+    facility.setUrl(dto.getRelateurl());
+    facility.setDataSource(DataSource.KOPIS_API);
+    facility.setLastSynced(LocalDateTime.now());
   }
 
   /**
@@ -130,7 +146,6 @@ public class FacilityService {
     }
   }
 
-  // public -> private 수정할것
   public KopisFacilityDto parseFacilityFromXml(String xmlResponse) {
     try {
       // <db> 블록 추출
