@@ -4,7 +4,6 @@ import com.everyplaceinkorea.epik_boot3_api.config.KopisApiConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 
@@ -101,7 +100,7 @@ public class KopisApiService {
                             .build())
                     .retrieve()
                     .bodyToMono(String.class)
-                    .timeout(Duration.ofMillis(kopisApiConfig.getApi().getTimeout()))
+                    .timeout(Duration.ofSeconds(15))  // 30초 → 15초로 단축
                     .block();
 
             log.info("장르 {} 응답 길이: {}", shcate, response != null ? response.length() : 0);
@@ -122,7 +121,7 @@ public class KopisApiService {
                             .build(mt20id))
                     .retrieve()
                     .bodyToMono(String.class)
-                    .timeout(Duration.ofMillis(kopisApiConfig.getApi().getTimeout()))
+                    .timeout(Duration.ofSeconds(10))
                     .block();
 
         } catch(Exception e) {
@@ -176,7 +175,7 @@ public class KopisApiService {
                       .build(facilityId))
               .retrieve()
               .bodyToMono(String.class)
-              .timeout(Duration.ofMillis(kopisApiConfig.getApi().getTimeout()))
+              .timeout(Duration.ofSeconds(10))  // 30초 → 10초로 단축
               .block();
 
       log.debug("공연시설상세 응답 길이: {}", response != null ? response.length() : 0);

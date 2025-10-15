@@ -1,21 +1,27 @@
 package com.everyplaceinkorea.epik_boot3_api.external.kopis.service;
 
+import com.everyplaceinkorea.epik_boot3_api.entity.Facility;
+import com.everyplaceinkorea.epik_boot3_api.entity.Hall;
 import com.everyplaceinkorea.epik_boot3_api.entity.Region;
 import com.everyplaceinkorea.epik_boot3_api.entity.concert.Concert;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.Musical;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.KopisApiService;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.KopisPerformanceDto;
+import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.MigrationResult;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.SyncResult;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.utils.KopisGenreUtil;
+import com.everyplaceinkorea.epik_boot3_api.repository.HallRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.Member.MemberRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.RegionRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.concert.ConcertRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.musical.MusicalRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.openqa.selenium.TimeoutException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -33,10 +39,12 @@ import java.util.regex.Pattern;
 public class KopisDataSyncService {
 
     private final KopisApiService kopisApiService;
+    private final FacilityService facilityService;
     private final ConcertRepository concertRepository;
     private final MusicalRepository musicalRepository;
     private final RegionRepository regionRepository;
     private final MemberRepository memberRepository;
+    private final HallRepository hallRepository;
 
     public SyncResult syncConcerts() {
         log.info("=== Concert 기본 동기화 시작 ===");
@@ -248,6 +256,8 @@ public class KopisDataSyncService {
                     concert.updateFromKopisDetailData(dto); // 엔티티에 적용
                     log.debug("상세 정보 보완 완료: {}", concert.getTitle());
                 }
+                // Facility/Hall 동기화
+                syncFacilityAndHall(concert, dto);
                 result.addSuccess(false);
 
             } else {
@@ -289,6 +299,9 @@ public class KopisDataSyncService {
                 concert.updateFromKopisDetailData(dto);
             }
 
+            // Facility/Hall 동기화
+            syncFacilityAndHall(concert, dto);
+
             // 동기화 시간 기록
             concert.setLastSynced(LocalDateTime.now());
 
@@ -306,27 +319,6 @@ public class KopisDataSyncService {
             result.addFailure("콘서트 ID " + dto.getMt20id() + " 생성 실패: " + e.getMessage());
         }
     }
-
-    /**
-     * 상세 정보 조회 및 적용 (누락 보완용)
-     */
-//    private void fetchAndApplyDetailInfo(Concert concert, KopisPerformanceDto basicDto) {
-//        try {
-//            String detailXml = kopisApiService.getPerformanceDetail(basicDto.getMt20id());
-//
-//            if(detailXml != null) {
-//                List<KopisPerformanceDto> detailList = parseXmlToPerformanceList(detailXml);
-//                if(!detailList.isEmpty()) {
-//                    KopisPerformanceDto detailDto = detailList.get(0);
-//                    mergeDetailInfo(basicDto, detailDto);
-//                    concert.updateFromKopisDetailData(basicDto);
-//                    log.debug("상세 정보 적용 완료: {}", concert.getTitle());
-//                }
-//            }
-//        } catch (Exception e) {
-//            log.warn("상세 정보 조회 실패: {}", concert.getTitle());
-//        }
-//    }
 
     private void fetchAndMergeDetailToDto(KopisPerformanceDto dto) {
         try {
@@ -367,6 +359,8 @@ public class KopisDataSyncService {
                     musical.updateFromKopisDetailData(dto);
                     log.debug("뮤지컬 데이터 - 상세 정보 보완 완료: {}", musical.getTitle());
                 }
+                // Facility/Hall 동기화
+                syncFacilityAndHall(musical, dto);
                 result.addSuccess(false);
             } else {
                 log.debug("신규 뮤지컬, 상세 정보 조회: {}", dto.getPrfnm());
@@ -405,6 +399,9 @@ public class KopisDataSyncService {
             if (hasDetailData(dto)) {
                 musical.updateFromKopisDetailData(dto);
             }
+
+            // Facility/Hall 동기화
+            syncFacilityAndHall(musical, dto);
 
             // 동기화 시간 기록
             musical.setLastSynced(LocalDateTime.now());
@@ -508,6 +505,7 @@ public class KopisDataSyncService {
         try {
             KopisPerformanceDto dto = new KopisPerformanceDto();
             dto.setMt20id(extractXmlValue(xmlContent, "mt20id"));
+            dto.setMt10id(extractXmlValue(xmlContent, "mt10id"));
             dto.setPrfnm(extractXmlValue(xmlContent, "prfnm"));
             dto.setPrfpdfrom(extractXmlValue(xmlContent, "prfpdfrom"));
             dto.setPrfpdto(extractXmlValue(xmlContent, "prfpdto"));
@@ -638,7 +636,15 @@ public class KopisDataSyncService {
      * 완전한 상세 정보 병합 (12개 필드 모두 처리)
      */
     private void mergeAllDetailInfo(KopisPerformanceDto basicDto, KopisPerformanceDto detailDto) {
-        // 기존 3개 필드
+
+        if(isValidString(detailDto.getMt10id())) {
+            basicDto.setMt10id(detailDto.getMt10id());
+        }
+
+        if (isValidString(detailDto.getFcltynm())) {
+            basicDto.setFcltynm(detailDto.getFcltynm());
+        }
+
         if (isValidString(detailDto.getPrftime())) {
             basicDto.setPrftime(removeEmojis(detailDto.getPrftime()));
         }
@@ -646,7 +652,6 @@ public class KopisDataSyncService {
             basicDto.setPcseguidance(removeEmojis(detailDto.getPcseguidance()));
         }
 
-        // 누락된 중요 필드들 추가
         if (isValidString(detailDto.getDtguidance())) {
             basicDto.setDtguidance(removeEmojis(detailDto.getDtguidance()));
         }
@@ -712,5 +717,104 @@ public class KopisDataSyncService {
         }
 
         return sb.toString().trim();
+    }
+
+    /**
+     * 공연의 Facility와 Hall 정보 동기화
+     */
+    private void syncFacilityAndHall(Object performance, KopisPerformanceDto dto) {
+        log.info("=== syncFacilityAndHall 시작 ===");
+        try {
+            // 1. 공연 시설 ID 확인
+            String mt10id = dto.getMt10id();
+            if(mt10id == null || mt10id.trim().isEmpty()) {
+                log.debug("시설 ID 없음, Facility/Hall 동기화 스킵: {}", dto.getPrfnm());
+                return;
+            }
+
+            // 2. Facility 동기화
+            Optional<Facility> facilityOpt = facilityService.syncFacility(mt10id);
+
+            if(facilityOpt.isEmpty()) {
+                log.warn("Facility 동기화 실패: {}", mt10id);
+                return;
+            }
+
+            Facility facility = facilityOpt.get();
+            log.info("Facility 조회 성공: ID={}, Name={}", facility.getId(), facility.getName());
+
+            // 4. Concert 또는 Musical에 Facility 설정
+            if(performance instanceof Concert) {
+                Concert concert = (Concert) performance;
+                concert.setFacility(facility);
+
+                // Facility 정확한 주소로 업데이트
+                if(facility.getAddress() != null && !facility.getAddress().isEmpty()) {
+                    concert.setAddress(facility.getAddress());
+                    log.debug("Concert 주소 업데이트: {}", facility.getAddress());
+                }
+
+                // 5. Hall 매칭 시도
+                Hall hall = matchHallFromVenue(facility, dto.getFcltynm());
+                if(hall != null) {
+                    concert.setHall(hall);
+                    log.debug("Hall 매칭 성공: {} -> {}", dto.getPrfnm(), hall.getName());
+                }
+            } else if(performance instanceof Musical) {
+                Musical musical = (Musical) performance;
+                musical.setFacility(facility);
+
+                // Facility의 정확한 주소로 업데이트
+                if(facility.getAddress() != null && !facility.getAddress().isEmpty()) {
+                    musical.setAddress(facility.getAddress());
+                    log.debug("Musical 주소 업데이트: {}", facility.getAddress());
+                }
+
+                Hall hall = matchHallFromVenue(facility, dto.getFcltynm());
+                if (hall != null) {
+                    musical.setHall(hall);
+                    log.debug("Hall 매칭 성공: {} → {}", dto.getPrfnm(), hall.getName());
+                }
+            }
+            log.info("Facility/Hall 동기화 완료: {} -> Facility={}", dto.getPrfnm(), facility.getName());
+
+        } catch(Exception e) {
+            log.error("Facility/Hall 동기화 실패: {}, 에러: {}", dto.getPrfnm(), e.getMessage());
+        }
+    }
+
+    /**
+     * venue 문자열에서 Hall 매칭
+     */
+    private Hall matchHallFromVenue(Facility facility, String fcltynm) {
+        if(fcltynm == null || fcltynm.trim().isEmpty() || facility == null) {
+            return null;
+        }
+
+        try {
+            // 1. 해당 시설의 모든 Hall 조회
+            List<Hall> halls = hallRepository.findByFacility_id(facility.getId());
+            if(halls == null || halls.isEmpty()) {
+                log.debug("Facility에 Hall이 없음: Facility ID={}", facility.getId());
+                return null;
+            }
+            log.debug("Hall 매칭 시도: fcltynm='{}', Facility Hall 개수={}", fcltynm, halls.size());
+
+            // 2. 각 Hall의 이름이 fcltynm 문자열에 포함되어 있는지 확인
+            for(Hall hall : halls) {
+                String hallName = hall.getName();
+                if(hallName != null && !hallName.trim().isEmpty()) {
+                    if(fcltynm.contains(hallName)) {
+                        log.info("Hall 매칭 성공: '{}'에서 '{}' 찾음", fcltynm, hallName);
+                        return hall;
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            log.warn("Hall 매칭 중 오류: {}", e.getMessage());
+        }
+
+        return null;
     }
 }

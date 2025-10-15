@@ -1,6 +1,8 @@
 package com.everyplaceinkorea.epik_boot3_api.entity.concert;
 
 import com.everyplaceinkorea.epik_boot3_api.admin.contents.concert.dto.ConcertUploadResultDto;
+import com.everyplaceinkorea.epik_boot3_api.entity.Facility;
+import com.everyplaceinkorea.epik_boot3_api.entity.Hall;
 import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.Status;
@@ -122,6 +124,14 @@ public class Concert {
   @Enumerated(EnumType.STRING)
   @Column(name = "kopis_ticket_offices_source")
   private TicketOfficeSource kopisTicketOfficesSource = TicketOfficeSource.MANUAL;
+
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "facility_id")
+  private Facility facility;
+
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "hall_id")
+  private Hall hall;
 
   public void addImage(ConcertUploadResultDto uploadResult) {
     this.filePath = uploadResult.getFilePath();

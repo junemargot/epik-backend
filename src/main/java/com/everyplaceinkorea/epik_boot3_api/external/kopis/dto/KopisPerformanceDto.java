@@ -6,7 +6,8 @@ import lombok.Data;
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class KopisPerformanceDto {
-  private String mt20id;         // 공연ID
+  private String mt20id;         // 공연 ID
+  private String mt10id;         // 공연시설 ID
   private String prfnm;          // 공연명
   private String prfpdfrom;      // 공연시작일
   private String prfpdto;        // 공연종료일
