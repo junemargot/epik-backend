@@ -26,10 +26,19 @@ public class Facility {
   @Column(name = "name", nullable = false, length = 200)
   private String name;       // 시설명
 
+  @Column(name = "address", nullable = false, length = 500)
   private String address;    // 상세 주소
+
+  @Column(name = "latitude")
   private Double latitude;   // 위도
+
+  @Column(name = "longitude")
   private Double longitude;  // 경도
+
+  @Column(name = "tel", length = 50)
   private String tel;        // 전화번호
+
+  @Column(name = "url", length = 500)
   private String url;        // 홈페이지
 
   @Enumerated(EnumType.STRING)

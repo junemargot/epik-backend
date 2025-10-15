@@ -35,11 +35,15 @@ public class FacilityService {
   private final HallRepository hallRepository;
 
   /**
-   * KOPIS API에서 시설 정보를 가져와 동기화
-   * @param kopisFacilityId
-   * @return Facility 엔티티 (Optional)
+   * KOPIS API에서 시설 및 하위 공연장 정보를 가져와 DB에 동기화(생성 또는 업데이트)
+   * 예외 처리:
+   * - DataAccessException: DB 오류는 RuntimeException을 발생시켜 트랜잭션 롤백
+   * - API 호출 오류나 파싱 실패 시에는 Optional.empty()를 반환
+   *
+   * @param kopisFacilityId 동기화할 대상의 KOPIS 시설 ID ("FC001242")
+   * @return 동기화에 성공한 Facility 엔티티를 포함하는 Optional. 실패 시 Optional.empty()
    */
-  @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 30)
+  @Transactional(propagation = Propagation.REQUIRES_NEW, timeout = 60)
   public Optional<Facility> syncFacility(String kopisFacilityId) {
     log.info("시설 동기화 시작: {}", kopisFacilityId);
 
@@ -69,11 +73,13 @@ public class FacilityService {
 
       // 4. Facility 먼저 저장 (ID 생성)
       Facility savedFacility = facilityRepository.saveAndFlush(facility);
+      log.debug("시설 저장: {} (ID={})", savedFacility.getName(), savedFacility.getId());
 
       // 5. 별도 메서드로 Hall 동기화 (새 영속성 컨텍스트)
       if (dto.getHalls() != null && !dto.getHalls().isEmpty()) {
         syncHallsWithFacility(savedFacility.getId(), dto.getHalls());
       }
+
       return Optional.of(savedFacility);
 
     } catch (DataAccessException e) {
@@ -90,8 +96,11 @@ public class FacilityService {
     }
   }
 
-  /*
-   * Facility 정보 업데이트
+  /**
+   * DTO로부터 받은 최신 정보로 Facility 엔티티의 필드를 업데이트하는 헬퍼 메서드
+   *
+   * @param facility 업데이트할 Facility 엔티티 (DB에서 조회했거나 새로 생성된 객체)
+   * @param dto      KOPIS API로부터 파싱된 최신 시설 정보를 담은 DTO
    */
   private void updateFacility(Facility facility, KopisFacilityDto dto) {
     facility.setName(dto.getFcltynm());
@@ -105,7 +114,12 @@ public class FacilityService {
   }
 
   /**
-   * Hall 동기화 (별도 트랜잭션)
+   * 특정 시설에 속한 모든 공연장(Hall) 정보를 데이터베이스에 동기화
+   * 별도의 트랜잭션으로 실행, 공연장 동기화 실패가 시설 동기화로부터 격리
+   * 개별 공연장 저장 실패 시, 오류를 로그로 남기고 다음 공연장 동기화 진행
+   *
+   * @param facilityId 부모 Facility 엔티티의 데이터베이스 ID
+   * @param hallDtos   동기화할 공연장 정보 DTO 리스트
    */
   @Transactional(propagation = Propagation.REQUIRES_NEW)
   public void syncHallsWithFacility(Long facilityId, List<KopisHallDto> hallDtos) {
@@ -132,23 +146,28 @@ public class FacilityService {
 
           hallRepository.save(hall);
           hallCount++;
-          log.debug("  ✅ Hall 저장: {}", hall.getName());
+          log.debug("Hall 저장: {}", hall.getName());
 
         } catch (Exception e) {
-          log.error("  ❌ Hall 저장 실패: {}, 에러: {}", hallDto.getPrfplcnm(), e.getMessage());
+          log.error("Hall 저장 실패: {}, 에러: {}", hallDto.getPrfplcnm(), e.getMessage());
         }
       }
 
-      log.info("✅ Hall {} 개 저장 완료", hallCount);
+      log.info("Hall {} 개 저장 완료", hallCount);
 
     } catch (Exception e) {
-      log.error("❌ Hall 동기화 실패: facilityId={}, 에러: {}", facilityId, e.getMessage(), e);
+      log.error("Hall 동기화 실패: facilityId={}, 에러: {}", facilityId, e.getMessage(), e);
     }
   }
 
+  /**
+   * KOPIS 시설 상세 API의 원본 XML 응답 문자열을 KopisFacilityDto 객체로 파싱
+   *
+   * @param xmlResponse KOPIS API의 XML 응답 원본 문자열
+   * @return 파싱된 데이터가 채워진 KopisFacilityDto 객체. 파싱 실패 시 null
+   */
   public KopisFacilityDto parseFacilityFromXml(String xmlResponse) {
     try {
-      // <db> 블록 추출
       Pattern dbPattern = Pattern.compile("<db>(.*?)</db>", Pattern.DOTALL);
       Matcher dbMatcher = dbPattern.matcher(xmlResponse);
 
@@ -183,7 +202,13 @@ public class FacilityService {
     }
   }
 
-  // XML 태그에서 값 추출
+  /**
+   * XML 형식의 문자열에서 특정 태그에 해당하는 값을 추출하는 유틸리티 메서드
+   *
+   * @param dbContent 값을 추출할 XML 문자열
+   * @param tagName   추출 대상 태그의 이름
+   * @return 추출된 값. 태그가 없거나 값이 비어있으면 null
+   */
   private String extractXmlValue(String dbContent, String tagName) {
     Pattern pattern = Pattern.compile("<" + tagName + ">(.*?)</" + tagName + ">", Pattern.DOTALL);
     Matcher matcher = pattern.matcher(dbContent);
@@ -201,12 +226,16 @@ public class FacilityService {
     return null;
   }
 
-  // XML에서 공연장 정보 리스트 추출
+  /**
+   * 시설 정보 XML 내용 중, 하위 공연장 목록에 해당하는 부분을 파싱하여 KopisHallDto 리스트 생성
+   *
+   * @param dbContent 시설 정보 XML의 <db> 블록 내부 문자열
+   * @return 파싱된 KopisHallDto 객체의 리스트. 공연장 정보가 없거나 파싱 실패 시 빈 리스트
+   */
   private List<KopisHallDto> parseHallsFromXml(String dbContent) {
     List<KopisHallDto> halls = new ArrayList<>();
 
     try {
-      // mt13s 블록 추출
       Pattern mt13sPattern = Pattern.compile("<mt13s>(.*?)</mt13s>", Pattern.DOTALL);
       Matcher mt13sMatcher = mt13sPattern.matcher(dbContent);
       if(!mt13sMatcher.find()) {
@@ -215,8 +244,6 @@ public class FacilityService {
       }
 
       String mt13sContent = mt13sMatcher.group(1);
-      log.debug("mt13s 블록 추출 완료");
-
       // mt13 블록 추출
       Pattern mt13Pattern = Pattern.compile("<mt13>(.*?)</mt13>", Pattern.DOTALL);
       Matcher mt13Matcher = mt13Pattern.matcher(mt13sContent);
@@ -231,10 +258,7 @@ public class FacilityService {
         hallDto.setSeatscale(extractXmlValue(mt13Block, "seatscale"));
 
         halls.add(hallDto);
-        log.debug("공연장 파싱: {} (좌석: {})", hallDto.getPrfplcnm(), hallDto.getSeatscale());
       }
-
-      log.debug("공연장 {}개 파싱 완료", halls.size());
 
     } catch (Exception e) {
       log.error("공연장 정보 파싱 실패: {}", e.getMessage(), e);
@@ -243,6 +267,12 @@ public class FacilityService {
     return halls;
   }
 
+  /**
+   * 콤마(,)가 포함된 좌석 수 문자열을 Integer 타입으로 변환
+   *
+   * @param seatscale 좌석 수를 나타내는 문자열 (예: "1,500", "800")
+   * @return 변환된 Integer 값. 변환 실패 또는 입력이 null이면 null
+   */
   private Integer parseSeatScale(String seatscale) {
     try {
       return seatscale != null ? Integer.parseInt(seatscale.trim()) : null;
@@ -252,6 +282,12 @@ public class FacilityService {
     }
   }
 
+  /**
+   * 좌표(위도/경도) 문자열을 Double 타입으로 변환
+   *
+   * @param coordinate 좌표를 나타내는 문자열
+   * @return 변환된 Double 값. 변환 실패 또는 입력이 null이면 null
+   */
   private Double parseCoordinate(String coordinate) {
     if(coordinate == null || coordinate.trim().isEmpty()) {
       return null;
