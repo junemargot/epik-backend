@@ -40,13 +40,13 @@ public interface PopupRepository extends JpaRepository<Popup, Long>{
             "JOIN p.popupCategory c " +
             "WHERE c.id = :categoryId " +
             "AND :currentDate BETWEEN p.startDate AND p.endDate")
-    Page<Popup> findByCategoryAndStartDate(@Param("categoryId") Long categoryId,
+    Page<Popup> findByPopupCategoryAndStartDate(@Param("categoryId") Long categoryId,
                                             @Param("currentDate") LocalDate currentDate,
                                             Pageable pageable);
 
     // 이주의 신규 팝업 - 지역별
     @Query("SELECT p FROM Popup p " + "JOIN p.popupRegion c " + "WHERE c.id = :regionId " + "AND p.startDate = :startDate")
-    Page<Popup> findByRegionAndStartDate(@Param("regionId") Long regionId,
+    Page<Popup> findByPopupRegionAndStartDate(@Param("regionId") Long regionId,
                                         @Param("startDate") LocalDate startDate,
                                         Pageable pageable);
 
@@ -61,7 +61,7 @@ public interface PopupRepository extends JpaRepository<Popup, Long>{
             "WHERE p.popupCategory.id = :categoryId " +
             "AND p.popupRegion.id = :regionId " +
             "AND :currentDate BETWEEN p.startDate AND p.endDate")
-    Page<Popup> findByCategoryAndRegionAndStartDate(@Param("categoryId") Long categoryId,
+    Page<Popup> findByPopupCategoryAndPopupRegionAndStartDate(@Param("categoryId") Long categoryId,
                                                     @Param("regionId") Long regionId,
                                                     @Param("currentDate") LocalDate currentDate,
                                                     Pageable pageable);
