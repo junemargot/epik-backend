@@ -64,4 +64,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
 
   List<Concert> findByFacilityIsNotNullAndHallIsNull();
 
+  @Query("SELECT c FROM Concert c WHERE c.kopisId IS NOT NULL " +
+          "AND (c.kopisTicketOffices IS NULL OR c.kopisTicketOffices = '{}' OR c.kopisTicketOffices = '')")
+  Page<Concert> findConcertsWithoutTicketOffices(Pageable pageable);
 }
