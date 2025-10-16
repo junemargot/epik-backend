@@ -41,7 +41,7 @@ public class DefaultPopupService implements PopupService {
 
         LocalDate now = LocalDate.now();
         System.out.println("오늘날짜: " + now);
-        Page<Popup> popups = popupRepository.findByCategoryAndStartDate(categoryId, LocalDate.now(), pageable);
+        Page<Popup> popups = popupRepository.findByPopupCategoryAndStartDate(categoryId, LocalDate.now(), pageable);
 
         List<PopupResponseDto> responseDtos = popups
                 .getContent()
@@ -70,7 +70,7 @@ public class DefaultPopupService implements PopupService {
 
         LocalDate now = LocalDate.now();
         System.out.println("오늘날짜: " + now);
-        Page<Popup> popups = popupRepository.findByRegionAndStartDate(regionId, LocalDate.now(), pageable);
+        Page<Popup> popups = popupRepository.findByPopupRegionAndStartDate(regionId, LocalDate.now(), pageable);
 
         List<PopupResponseDto> responseDtos = popups
                 .getContent()
@@ -97,7 +97,7 @@ public class DefaultPopupService implements PopupService {
 
         LocalDate now = LocalDate.now();
         System.out.println("오늘날짜: " + now);
-        Page<Popup> popups = popupRepository.findByCategoryAndRegionAndStartDate(categoryId, regionId, LocalDate.now(), pageable);
+        Page<Popup> popups = popupRepository.findByPopupCategoryAndPopupRegionAndStartDate(categoryId, regionId, LocalDate.now(), pageable);
 
         log.info("popups ={}", popups.toString());
 
