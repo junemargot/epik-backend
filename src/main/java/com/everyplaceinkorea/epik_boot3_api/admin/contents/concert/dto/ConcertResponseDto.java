@@ -32,6 +32,9 @@ public class ConcertResponseDto {
   private String youtubeUrl;       // 유튜브 url
   private DataSource dataSource;   // 데이터 출처
   private List<String> concertImages; // KOPIS 상세 이미지들 (추가)
+  private String facilityName;
+  private String facilityTel;
+  private String facilityUrl;
 
   // 이미지 URL을 동적으로 생성하는 메서드
   public String getImageUrl() {

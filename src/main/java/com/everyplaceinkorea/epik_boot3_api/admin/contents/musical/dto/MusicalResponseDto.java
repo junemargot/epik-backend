@@ -39,6 +39,9 @@ public class MusicalResponseDto {
     private Map<String, String> ticketOffiecs;
     private LocalDateTime ticketOfficesUpdatedAt;
     private String ticketOfficesSource;
+    private String facilityName;
+    private String facilityTel;
+    private String facilityUrl;
 
     // 이미지 URL 동적 생성
     public String getImageUrl() {

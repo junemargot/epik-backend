@@ -1,6 +1,7 @@
 package com.everyplaceinkorea.epik_boot3_api.admin.contents.concert.service;
 
 import com.everyplaceinkorea.epik_boot3_api.admin.contents.concert.dto.*;
+import com.everyplaceinkorea.epik_boot3_api.entity.Facility;
 import com.everyplaceinkorea.epik_boot3_api.entity.Region;
 import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.concert.*;
@@ -158,6 +159,18 @@ public class DefaultConcertService implements ConcertService {
 //      concertTicketPriceDtos.add(ticketPriceDto);
 //    }
 //    concertResponseDto.setTicketPrices(concertTicketPriceDtos); // loop 밖에서 한 번만 설정
+
+    // facility 정보 설정
+    if(concert.getFacility() != null) {
+      Facility facility = concert.getFacility();
+      concertResponseDto.setFacilityName(facility.getName());
+      concertResponseDto.setFacilityTel(facility.getTel());
+      concertResponseDto.setFacilityUrl(facility.getUrl());
+
+      log.info("시설 정보 설정 완료: 이름: {}, 전화: {}, ULR: {}", facility.getName(),facility.getTel(),facility.getUrl());
+    } else {
+      log.warn("Concert ID {}에 연결된 Facility가 없습니다", id);
+    }
 
     // 이미지 처리 로직
     handleConcertImages(concert, concertResponseDto);
