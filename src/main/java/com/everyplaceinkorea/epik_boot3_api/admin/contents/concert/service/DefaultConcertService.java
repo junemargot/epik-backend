@@ -167,7 +167,7 @@ public class DefaultConcertService implements ConcertService {
       concertResponseDto.setFacilityTel(facility.getTel());
       concertResponseDto.setFacilityUrl(facility.getUrl());
 
-      log.info("시설 정보 설정 완료: 이름: {}, 전화: {}, ULR: {}", facility.getName(),facility.getTel(),facility.getUrl());
+      log.info("시설 정보 설정 완료: 이름: {}, 전화: {}, URL: {}", facility.getName(),facility.getTel(),facility.getUrl());
     } else {
       log.warn("Concert ID {}에 연결된 Facility가 없습니다", id);
     }

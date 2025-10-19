@@ -1,11 +1,8 @@
 package com.everyplaceinkorea.epik_boot3_api.admin.contents.musical.service;
 
-import com.everyplaceinkorea.epik_boot3_api.admin.contents.concert.dto.ConcertResponseDto;
-import com.everyplaceinkorea.epik_boot3_api.admin.contents.concert.dto.ConcertTicketPriceDto;
 import com.everyplaceinkorea.epik_boot3_api.admin.contents.musical.dto.*;
 import com.everyplaceinkorea.epik_boot3_api.entity.Facility;
 import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
-import com.everyplaceinkorea.epik_boot3_api.entity.concert.Concert;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.entity.Region;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.*;
@@ -222,9 +219,9 @@ public class DefaultMusicalService implements MusicalService {
             responseDto.setFacilityTel(facility.getTel());
             responseDto.setFacilityUrl(facility.getUrl());
 
-            log.info("시설 정보 설정 완료: 이름: {}, 전화: {}, ULR: {}", facility.getName(),facility.getTel(),facility.getUrl());
+            log.info("시설 정보 설정 완료: 이름: {}, 전화: {}, URL: {}", facility.getName(),facility.getTel(),facility.getUrl());
         } else {
-            log.warn("Concert ID {}에 연결된 Facility가 없습니다", id);
+            log.warn("Musical ID {}에 연결된 Facility가 없습니다", id);
         }
 
         // 이미지 처리 로직
