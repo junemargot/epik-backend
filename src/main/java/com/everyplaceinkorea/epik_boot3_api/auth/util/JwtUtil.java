@@ -42,23 +42,48 @@ public class JwtUtil {
     }
 
     public String extractUsername(String token) {
-
         return extractAllClaims(token).getSubject();
     }
 
     public String extractEmail(String token) {
-
         return extractAllClaims(token).get("email", String.class);
     }
 
     public List<String> extractRoles(String token) {
-        List<Map<String, String>> roles = extractAllClaims(token).get("role", List.class);
+        try {
+            Object rolesObj = extractAllClaims(token).get("role");
+            if(rolesObj == null) {
+                return Collections.emptyList();
+            }
 
-        if(roles == null) return Collections.emptyList();
+            // role이 List<String>인 경우 (저장 방식)
+            if(rolesObj instanceof List) {
+                List<?> rolesList = (List<?>) rolesObj;
+                return rolesList.stream()
+                        .map(role -> {
+                            if(role instanceof String) {
+                                return (String) role;
+                            } else if(role instanceof Map) {
+                                Map<?, ?> roleMap = (Map<?, ?>) role;
+                                return (String) roleMap.get("authority");
+                            }
+                            return null;
+                        })
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
+            }
 
-        return roles.stream()
-                .map(role -> role.get("authority"))
-                .collect(Collectors.toList());
+            if(rolesObj instanceof String) {
+                return Collections.singletonList((String) rolesObj);
+            }
+
+            log.warn("예상하지 못한 role 타입: {}", rolesObj.getClass());
+            return Collections.emptyList();
+
+        } catch(Exception e) {
+            log.error("Role 추출 중 오류 발생: {}", e.getMessage(), e);
+            return Collections.emptyList();
+        }
     }
 
     public Long extractId(String token) {
@@ -73,29 +98,11 @@ public class JwtUtil {
                 .getBody();
     }
 
-//    public String generateToken(EpikUserDetails userDetails) {
-//        Map<String, Object> claims = new HashMap<>();
-//        claims.put("id", userDetails.getId());
-//        claims.put("username", userDetails.getUsername());
-//        claims.put("email", userDetails.getEmail());
-//        claims.put("nickname", userDetails.getNickname());
-//        claims.put("profileImage", userDetails.getProfileImage());
-//        claims.put("role", userDetails.getAuthorities());
-//
-//        return Jwts.builder()
-//                .setClaims(claims)
-//                .setSubject(userDetails.getUsername())
-//                .setIssuedAt(new Date())
-//                .setExpiration(new Date(System.currentTimeMillis() + tokenValidityInMilliseconds))
-//                .signWith(secretKey, SignatureAlgorithm.HS512)
-//                .compact();
-//    }
-
     // UserDetails 객체로부터 JWT 토큰 생성
     public String generateToken(UserDetails userDetails) {
         EpikUserDetails epikUserDetails = (EpikUserDetails) userDetails;
 
-        // 사용자 권한 정보 추출
+        // 사용자 권한 정보 추출 - List<String>으로 저장
         List<String> roles = epikUserDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toList());
@@ -103,6 +110,11 @@ public class JwtUtil {
         // 토큰 생성 시간 및 만료 시간 설정
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + accessTokenExpirationTime);
+
+        log.debug("토큰 생성 - username: {}, id: {}, roles: {}",
+                epikUserDetails.getUsername(),
+                epikUserDetails.getId(),
+                roles);
 
         // 토큰에 포함할 클레임(정보) 설정
         return Jwts.builder()
@@ -115,7 +127,6 @@ public class JwtUtil {
                 .claim("profileImg", epikUserDetails.getProfileImage())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
-//                .signWith(Keys.hmacShaKeyFor(secretKey.getBytes()), SignatureAlgorithm.HS512)
                 .signWith(secretKey, SignatureAlgorithm.HS512)
                 .compact();
     }
@@ -123,7 +134,6 @@ public class JwtUtil {
     // JWT 리프레시 토큰 생성
     public String generateRefreshToken(EpikUserDetails userDetails) {
         Date now = new Date();
-
         Date expiryDate = new Date(now.getTime() + refreshTokenExpirationTime);
 
         return Jwts.builder()
