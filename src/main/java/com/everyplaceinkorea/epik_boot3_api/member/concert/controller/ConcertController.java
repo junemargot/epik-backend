@@ -21,75 +21,68 @@ public class ConcertController {
 
     private final ConcertService concertService;
 
-    // 북마크 조회
-    // 북마크
+    /**
+     * 회원의 북마크 목록 조회
+     */
     @GetMapping("{id}/bookmark")
     public ResponseEntity<List<ConcertResponseDto>> getBookmark(@PathVariable Long id) {
         List<ConcertResponseDto> responseDtos = concertService.getBookmark(id);
         return ResponseEntity.ok(responseDtos);
     }
 
-    // 특정 콘서트 북마크 상태 조회
+    /**
+     * 특정 콘서트 북마크 상태 조회
+     */
     @GetMapping("{concertId}/bookmark/status")
-    public ResponseEntity<Map<String, Boolean>> getBookmarkStatus(
+    public ResponseEntity<Map<String, Object>> getBookmarkStatus(
             @PathVariable Long concertId,
             @AuthenticationPrincipal EpikUserDetails userDetails) {
 
-        log.info("북마크 상태 조회 - concertId: {}, userDetails: {}", concertId, userDetails);
-
-        // 로그인하지 않은 경우
-        if(userDetails == null) {
-            log.warn("인증되지 않은 사용자의 북마크 상태 조회");
+        if (userDetails == null) {
             return ResponseEntity.ok(Map.of(
-                    "isBookmarked", false,
-                    "authenticated", false
+                "isBookmarked", false,
+                "authenticated", false
             ));
         }
 
         Long memberId = userDetails.getId();
-        log.info("인증된 사용자 - memberId: {}", memberId);
-
         boolean isBookmarked = concertService.isBookmarked(concertId, memberId);
 
         return ResponseEntity.ok(Map.of(
-                "isBookmarked", isBookmarked,
-                "authenticated", true
+            "isBookmarked", isBookmarked,
+            "authenticated", true
         ));
     }
 
-    // 북마크 추가/삭제
+    /**
+     * 북마크 추가/삭제 토글
+     */
     @PostMapping("{concertId}/bookmark/toggle")
     public ResponseEntity<Map<String, Object>> toggleBookmark(
             @PathVariable Long concertId,
             @AuthenticationPrincipal EpikUserDetails userDetails) {
 
-        log.info("북마크 토글 - concertId: {}, userDetails: {}", concertId, userDetails);
-
-        // 로그인하지 않은 경우
-        if(userDetails == null) {
-            log.warn("인증되지 않은 사용자의 북마크 토글 시도");
+        if (userDetails == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
-                    "success", false,
-                    "message", "로그인이 필요한 기능입니다."
+                "success", false,
+                "message", "로그인이 필요한 기능입니다."
             ));
         }
 
         try {
             Long memberId = userDetails.getId();
-            log.info("인증된 사용자 북마크 토글 - memberId: {}, concertId: {}", memberId, concertId);
-
             boolean isBookmarked = concertService.toggleBookmark(concertId, memberId);
 
             return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "isBookmarked", isBookmarked,
-                    "message", isBookmarked ? "북마크가 추가되었습니다." : "북마크가 삭제되었습니다."
+                "success", true,
+                "isBookmarked", isBookmarked,
+                "message", isBookmarked ? "북마크가 추가되었습니다." : "북마크가 삭제되었습니다."
             ));
         } catch (Exception e) {
             log.error("북마크 토글 중 오류 발생: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                    "success", false,
-                    "message", "북마크 처리 중 오류가 발생했습니다. " + e.getMessage()
+                "success", false,
+                "message", "북마크 처리 중 오류가 발생했습니다."
             ));
         }
     }

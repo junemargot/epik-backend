@@ -11,6 +11,7 @@ import com.everyplaceinkorea.epik_boot3_api.repository.concert.ConcertRepository
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,7 +36,7 @@ public class DefaultConcertService implements ConcertService {
 
         List<ConcertResponseDto> responseDtos = new ArrayList<>();
 
-                concerts.forEach(concert -> {
+        concerts.forEach(concert -> {
             Long concertId = concert.getId();
             Concert findConcert = concertRepository.findById(concertId).orElseThrow();
             ConcertResponseDto responseDto = ConcertResponseDto.builder()
@@ -67,6 +68,7 @@ public class DefaultConcertService implements ConcertService {
 
     // 북마크 토글 (추가/삭제)
     @Override
+    @Transactional
     public boolean toggleBookmark(Long concertId, Long memberId) {
         ConcertBookmarkId id = new ConcertBookmarkId();
         id.setConcertId(concertId);
@@ -74,18 +76,16 @@ public class DefaultConcertService implements ConcertService {
 
         Optional<ConcertBookmark> existingBookmark = concertBookmarkRepository.findById(id);
 
-        if(existingBookmark.isPresent()) {
-            // 이미 존재하면 isActive 상태 토글
+        if (existingBookmark.isPresent()) {
             ConcertBookmark bookmark = existingBookmark.get();
             bookmark.setIsActive(!bookmark.getIsActive());
             concertBookmarkRepository.save(bookmark);
             return bookmark.getIsActive();
         } else {
-            // 새로 생성
             Concert concert = concertRepository.findById(concertId)
-                    .orElseThrow(() -> new RuntimeException("CONCERT NOT FOUND"));
+                    .orElseThrow(() -> new RuntimeException("Concert not found"));
             Member member = memberRepository.findById(memberId)
-                    .orElseThrow(() -> new RuntimeException("MEMBER NOT FOUND"));
+                    .orElseThrow(() -> new RuntimeException("Member not found"));
 
             ConcertBookmark newBookmark = new ConcertBookmark();
             newBookmark.setId(id);

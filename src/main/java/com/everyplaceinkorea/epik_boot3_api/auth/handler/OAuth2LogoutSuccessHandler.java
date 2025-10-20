@@ -3,6 +3,7 @@ package com.everyplaceinkorea.epik_boot3_api.auth.handler;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.Authentication;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 
+@Slf4j
 @Component
 public class OAuth2LogoutSuccessHandler implements LogoutSuccessHandler {
 
@@ -20,9 +22,11 @@ public class OAuth2LogoutSuccessHandler implements LogoutSuccessHandler {
     // JWT 토큰 쿠키 삭제
     ResponseCookie cookie = ResponseCookie.from("jwt_token", "")
             .httpOnly(true)
-            .secure(true)
+            .secure(false) // 개발 환경: false, 프로덕션: true
             .path("/")
             .maxAge(0)
+            .sameSite("Lax")
+            .domain("localhost")
             .build();
 
     response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());

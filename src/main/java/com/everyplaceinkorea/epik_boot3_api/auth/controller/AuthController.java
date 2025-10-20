@@ -426,4 +426,25 @@ public class AuthController {
                 .build();
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout(HttpServletResponse response) {
+        log.info("=== REST 로그아웃 API 호출 ===");
+
+        ResponseCookie cookie = ResponseCookie.from("jwt_token", "")
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Lax")
+                .domain("localhost")
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        log.info("쿠키 삭제 완료");
+
+        return ResponseEntity.ok(Map.of(
+                "success", "true",
+                "message", "로그아웃되었습니다."
+        ));
+    }
 }
