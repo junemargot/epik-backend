@@ -7,4 +7,6 @@ import java.util.List;
 public interface MusicalService {
     // 북마크
     List<MusicalResponseDto> getBookmark(Long id);
+    boolean isBookmarked(Long musicalId, Long memberId);
+    boolean toggleBookmark(Long musicalId, Long memberId);
 }
