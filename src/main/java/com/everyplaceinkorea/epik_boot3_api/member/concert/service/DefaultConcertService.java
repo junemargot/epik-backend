@@ -8,6 +8,7 @@ import com.everyplaceinkorea.epik_boot3_api.member.concert.dto.ConcertResponseDt
 import com.everyplaceinkorea.epik_boot3_api.repository.Member.MemberRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.concert.ConcertBookmarkRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.concert.ConcertRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,28 +31,18 @@ public class DefaultConcertService implements ConcertService {
     @Override
     public List<ConcertResponseDto> getBookmark(Long id) {
         List<ConcertBookmark> bookmarks = concertBookmarkRepository.findConcertBookmarksByMemberId(id);
-        List<Concert> concerts = bookmarks.stream()
+
+        return bookmarks.stream()
                 .map(ConcertBookmark::getConcert)
+                .map(concert -> ConcertResponseDto.builder()
+                        .id(concert.getId())
+                        .title(concert.getTitle())
+                        .startDate(concert.getStartDate())
+                        .endDate(concert.getEndDate())
+                        .venue(concert.getVenue())
+                        .saveImageName(concert.getFileSavedName())
+                        .build())
                 .collect(Collectors.toList());
-
-        List<ConcertResponseDto> responseDtos = new ArrayList<>();
-
-        concerts.forEach(concert -> {
-            Long concertId = concert.getId();
-            Concert findConcert = concertRepository.findById(concertId).orElseThrow();
-            ConcertResponseDto responseDto = ConcertResponseDto.builder()
-                    .id(findConcert.getId())
-                    .title(findConcert.getTitle())
-                    .startDate(findConcert.getStartDate())
-                    .endDate(findConcert.getEndDate())
-                    .venue(findConcert.getVenue())
-                    .saveImageName(findConcert.getFileSavedName())
-                    .build();
-
-            responseDtos.add(responseDto);
-        });
-
-        return responseDtos;
     }
 
     // 북마크 상태 조회
@@ -83,9 +74,9 @@ public class DefaultConcertService implements ConcertService {
             return bookmark.getIsActive();
         } else {
             Concert concert = concertRepository.findById(concertId)
-                    .orElseThrow(() -> new RuntimeException("Concert not found"));
+                    .orElseThrow(() -> new EntityNotFoundException("Concert not found with id: " + concertId));
             Member member = memberRepository.findById(memberId)
-                    .orElseThrow(() -> new RuntimeException("Member not found"));
+                    .orElseThrow(() -> new EntityNotFoundException("Member not found with id: " + memberId));
 
             ConcertBookmark newBookmark = new ConcertBookmark();
             newBookmark.setId(id);
