@@ -76,7 +76,7 @@ public class MusicalController {
             log.error("북마크 토글 중 오류 발생: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                     "success", false,
-                    "message", "북마크 처리 중 오류가 발생헀습니다."
+                    "message", "북마크 처리 중 오류가 발생했습니다."
             ));
         }
     }
