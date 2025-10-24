@@ -4,6 +4,7 @@ import com.everyplaceinkorea.epik_boot3_api.entity.concert.Concert;
 import com.everyplaceinkorea.epik_boot3_api.entity.concert.ConcertTicketOffice;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.Musical;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.MusicalTicketOffice;
+import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.MigrationResult;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.TicketOfficeScrapeResult;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.enums.TicketOfficeSource;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.scraper.KopisWebScraperService;
@@ -18,14 +19,12 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 /**
  * KOPIS 웹사이트 스크래핑 결과와 데이터베이스에 수기로 입력된 데이터를 병합하여,
@@ -267,35 +266,52 @@ public class TicketOfficeSyncService {
   /**
    * KOPIS ID가 존재하는 모든 뮤지컬에 대해 예매처 정보 일괄 업데이트
    */
-  @Transactional
-  public void updateAllMusicalTicketOffices() {
-    List<Musical> musicals = musicalRepository.findByKopisIdIsNotNull();
+  public MigrationResult updateAllMusicalTicketOffices() {
+    long startTime = System.currentTimeMillis();
 
-    log.info("뮤지컬 예매처 정보 업데이트 시작: 대상 개수={}", musicals.size());
+    // 예매처 없는 것만 조회 (update-recent, no pageable)
+    List<Musical> musicals = musicalRepository.findMusicalsWithoutTicketOffices();
+    log.info("=== 뮤지컬 예매처 정보 업데이트 시작: {} ===", musicals.size());
 
-    int successCount = 0;
-    int failCount = 0;
-    int skipCount = 0;
+    List<MigrationResult> batchResults = new ArrayList<>();
+    int batchSize = 50;
 
-    for (Musical musical : musicals) {
-      try {
-        if(hasMusicalTicketOfficeData(musical)) {
-          skipCount++;
-          log.info("예매처 데이터가 이미 존재하여 건너뜀: ID={}, 제목={}", musical.getId(), musical.getTitle());
-          continue;
-        }
-        updateMusicalTicketOffices(musical.getId());
-        successCount++;
-        Thread.sleep(3000); // 3초 대기
+    for(int i = 0; i < musicals.size(); i += batchSize) {
+      int end = Math.min(i + batchSize, musicals.size());
+      List<Musical> batch = musicals.subList(i, end);
+      log.info("배치 처리 시작: {}/{} ({}~{}번째)", end, musicals.size(), i + 1, end);
 
-      } catch (Exception e) {
-        failCount++;
-        log.error("뮤지컬 예매처 업데이트 실패: ID={}, 에러={}",
-                musical.getId(), e.getMessage());
-      }
+      // 배치 단위로 트랜잭션 처리
+      MigrationResult batchResult = updateMusicalTicketOfficesBatch(batch);
+      batchResults.add(batchResult);
+      log.info("배치 {}/{} 완료 - 성공: {}, 실패: {}, 스킵: {}",
+              end, musicals.size(),
+              batchResult.getSuccessCount(),
+              batchResult.getFailureCount(),
+              batchResult.getSkipCount());
     }
 
-    log.info("전체 뮤지컬 예매처 정보 업데이트 완료: 성공={}, 실패={}, 건너뜀={}", successCount, failCount, skipCount);
+    long totalSuccess = batchResults.stream().mapToLong(MigrationResult::getSuccessCount).sum();
+    long totalFailure = batchResults.stream().mapToLong(MigrationResult::getFailureCount).sum();
+    long totalSkip = batchResults.stream().mapToLong(MigrationResult::getSkipCount).sum();
+    long totalNoData = batchResults.stream().mapToLong(MigrationResult::getNoDataCount).sum();
+    long executionTimeMs = System.currentTimeMillis() - startTime;
+    log.info("=== 전체 뮤지컬 예매처 정보 업데이트 완료 ===");
+    log.info("=== 전체 완료: 성공={}, 실패={}, DB에 이미 있음={}, 예매처 없음={}, 소요={}초 ===",
+            totalSuccess, totalFailure, totalSkip, totalNoData, executionTimeMs / 1000.0);
+
+    return MigrationResult.builder()
+            .success(totalFailure == 0)
+            .message(String.format("완료 - 성공: %d, 실패: %d, DB존재: %d, 예매처없음: %d", totalSuccess, totalFailure, totalSkip, totalNoData))
+            .totalTarget(musicals.size())
+            .successCount(totalSuccess)
+            .failureCount(totalFailure)
+            .skipCount(totalSkip)
+            .noDataCount(totalNoData)
+            .remainingCount(0)
+            .executionTimeMs(executionTimeMs)
+            .executionTimeSec(executionTimeMs / 1000.0)
+            .build();
   }
 
   /**
@@ -348,35 +364,51 @@ public class TicketOfficeSyncService {
   /**
    * KOPIS ID가 존재하는 모든 콘서트에 대해 예매처 정보를 일괄 업데이트
    */
-  @Transactional
-  public void updateAllConcertTicketOffices() {
-    List<Concert> concerts = concertRepository.findByKopisIdIsNotNull();
+//  @Transactional
+  public MigrationResult updateAllConcertTicketOffices() {
+    long startTime = System.currentTimeMillis();
+    List<Concert> concerts = concertRepository.findConcertsWithoutTicketOffices();
+    log.info("=== 콘서트 예매처 정보 업데이트 시작: {} ===", concerts.size());
 
-    log.info("전체 콘서트 예매처 정보 업데이트 시작: 대상 개수={}", concerts.size());
+    List<MigrationResult> batchResults = new ArrayList<>();
+    int batchSize = 50;
 
-    int successCount = 0;
-    int failCount = 0;
-    int skipCount = 0;
+    for(int i = 0; i < concerts.size(); i+= batchSize) {
+      int end = Math.min(i + batchSize, concerts.size());
+      List<Concert> batch = concerts.subList(i, end);
+      log.info("배치 처리 시작: {}/{} ({}~{}번째)", end, concerts.size(), i + 1, end);
 
-    for(Concert concert : concerts) {
-      try {
-        if(hasConcertTicketOfficeData(concert)) {
-          skipCount++;
-          log.info("예매처 데이터가 이미 존재하여 건너뜀: ID={}, 제목={}", concert.getId(), concert.getTitle());
-          continue;
-        }
-        updateConcertTicketOffices(concert.getId());
-        successCount++;
-        Thread.sleep(3000);
-
-      } catch(Exception e) {
-        failCount++;
-        log.error("콘서트 예매처 업데이트 실패: ID={}, 에러={}",
-                concert.getId(), e.getMessage());
-      }
+      MigrationResult batchResult = updateConcertTicketOfficesBatch(batch);
+      batchResults.add(batchResult);
+      log.info("배치 {}/{} 완료 - 성공: {}, 실패: {}, 스킵: {}",
+              end, concerts.size(),
+              batchResult.getSuccessCount(),
+              batchResult.getFailureCount(),
+              batchResult.getSkipCount());
     }
 
-    log.info("전체 콘서트 예매처 정보 업데이트 완료: 성공={}, 실패={}, 건너뜀={}", successCount, failCount, skipCount);
+    long totalSuccess = batchResults.stream().mapToLong(MigrationResult::getSuccessCount).sum();
+    long totalFailure = batchResults.stream().mapToLong(MigrationResult::getFailureCount).sum();
+    long totalSkip = batchResults.stream().mapToLong(MigrationResult::getSkipCount).sum();
+    long totalNoData = batchResults.stream().mapToLong(MigrationResult::getNoDataCount).sum();
+    long executionTimeMs = System.currentTimeMillis() - startTime;
+
+    log.info("=== 전체 콘서트 예매처 정보 업데이트 완료 ===");
+    log.info("=== 전체 완료: 성공={}, 실패={}, DB에 이미 있음={}, 예매처 없음={}, 소요={}초 ===",
+            totalSuccess, totalFailure, totalSkip, totalNoData, executionTimeMs / 1000.0);
+
+    return MigrationResult.builder()
+            .success(totalFailure == 0)
+            .message(String.format("완료 - 성공: %d, 실패: %d, DB보유: %d, 예매처없음: %d", totalSuccess, totalFailure, totalSkip, totalNoData))
+            .totalTarget(concerts.size())
+            .successCount(totalSuccess)
+            .failureCount(totalFailure)
+            .skipCount(totalSkip)
+            .noDataCount(totalNoData)
+            .remainingCount(0)
+            .executionTimeMs(executionTimeMs)
+            .executionTimeSec(executionTimeMs / 1000.0)
+            .build();
   }
 
   /**
@@ -384,10 +416,10 @@ public class TicketOfficeSyncService {
    */
   public void updateRecentConcertTicketOffices() {
     LocalDateTime startTime = LocalDateTime.now();
-    log.info("=== 예매처 데이터가 없는 최근 15개 예매처 정보 업데이트 시작 ===");
+    log.info("=== 예매처 데이터가 없는 예매처 정보 업데이트 시작(pageable) ===");
     log.info("콘서트 예매처 테스트 시작시간: {}", startTime);
 
-    Pageable pageable = PageRequest.of(0, 15, Sort.by("id").descending());
+    Pageable pageable = PageRequest.of(0, 50, Sort.by("id").descending());
     Page<Concert> concertPage = concertRepository.findConcertsWithoutTicketOffices(pageable);
     List<Concert> concerts = concertPage.getContent();
 
@@ -419,11 +451,8 @@ public class TicketOfficeSyncService {
     }
     LocalDateTime endTime = LocalDateTime.now();
     Duration duration = Duration.between(startTime, endTime);
-
-    log.info("=== 예매처 데이터가 없는 최근 15개 콘서트 예매처 정보 업데이트 완료 ===");
-    log.info("1. 완료시간: {}", endTime);
-    log.info("2. 총 소요시간: {}초", duration.toSeconds());
-    log.info("3. 성공: {}개, 실패: {}개", successCount, failCount);
+    log.info("총 소요시간: {}초", duration.toSeconds());
+    log.info("성공: {}개, 실패: {}개", successCount, failCount);
   }
 
   private boolean hasMusicalTicketOfficeData(Musical musical) {
@@ -443,5 +472,88 @@ public class TicketOfficeSyncService {
     boolean hasManualData = !concertTicketOfficeRepository.findByConcert(concert).isEmpty();
 
     return hasJsonData || hasManualData;
+  }
+
+  // 배치 단위로 뮤지컬 예매처 정보 업데이트 (개별 트랜잭션)
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public MigrationResult updateMusicalTicketOfficesBatch(List<Musical> musicals) {
+    long successCount = 0;
+    long failureCount = 0;
+    long noDataCount = 0;
+
+    for(Musical musical : musicals) {
+      try {
+        // 스크래핑 시도
+        updateMusicalTicketOffices(musical.getId());
+
+        Musical updated = musicalRepository.findById(musical.getId()).orElse(null);
+        if(updated != null && hasMusicalTicketOfficeData(updated)) {
+          successCount++;
+        } else {
+          noDataCount++;
+          log.info("스크래핑 결과 없음 (KOPIS에 예매처 없음): ID={}", musical.getId());
+        }
+        Thread.sleep(3000);
+
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        failureCount++;
+        break;
+
+      } catch (Exception e) {
+        failureCount++;
+        log.error("실패: ID={}, 에러={}", musical.getId(), e.getMessage());
+      }
+    }
+
+    log.info("배치 결과 - 성공: {}, 실패: {}, 예매처 정보 없음: {}", successCount, failureCount, noDataCount);
+    return MigrationResult.builder()
+            .successCount(successCount)
+            .failureCount(failureCount)
+            .skipCount(0)
+            .noDataCount(noDataCount)
+            .totalTarget(musicals.size())
+            .build();
+  }
+
+  @Transactional(propagation = Propagation.REQUIRES_NEW)
+  public MigrationResult updateConcertTicketOfficesBatch(List<Concert> concerts) {
+    long successCount = 0;
+    long failureCount = 0;
+    long noDataCount = 0;
+
+    for(Concert concert : concerts) {
+      try {
+        updateConcertTicketOffices(concert.getId());
+
+        Concert updated = concertRepository.findById(concert.getId()).orElse(null);
+        if (updated != null && hasConcertTicketOfficeData(updated)) {
+          successCount++;
+        } else {
+          noDataCount++;
+          log.info("스크래핑 결과 없음 (KOPIS에 예매처 없음): ID={}", concert.getId());
+        }
+        Thread.sleep(3000);
+
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        failureCount++;
+        break;
+
+      } catch (Exception e) {
+        failureCount++;
+        log.error("실패: ID={}, 에러={}", concert.getId(), e.getMessage());
+      }
+    }
+
+    log.info("배치 결과 - 성공: {}, 실패: {}, 예매처 정보 없음: {}", successCount, failureCount, noDataCount);
+
+    return MigrationResult.builder()
+            .successCount(successCount)
+            .failureCount(failureCount)
+            .skipCount(0)
+            .noDataCount(noDataCount)
+            .totalTarget(concerts.size())
+            .build();
   }
 }

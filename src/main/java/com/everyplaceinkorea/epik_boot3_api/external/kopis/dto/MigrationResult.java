@@ -11,6 +11,8 @@ public class MigrationResult {
   private long totalTarget;
   private long successCount;
   private long failureCount;
+  private long skipCount;
+  private long noDataCount;
   private long remainingCount;
   private long executionTimeMs;
   private double executionTimeSec;
