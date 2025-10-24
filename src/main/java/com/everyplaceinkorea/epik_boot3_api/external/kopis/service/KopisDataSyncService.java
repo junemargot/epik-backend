@@ -291,6 +291,13 @@ public class KopisDataSyncService {
             // 상세 정보 추가 조회
             fetchAndMergeDetailToDto(dto);
 
+            // 추가 - 시설ID 검증
+            if(dto.getMt10id() == null || dto.getMt10id().trim().isEmpty()) {
+                log.error("상세 정보 조회 후에도 시설 ID 없음, 동기화 스킵: {} ({})", dto.getPrfnm(), dto.getMt20id());
+                result.addFailure(String.format("mt10id 없음: %s (%s)", dto.getPrfnm(), dto.getMt20id()));
+                return;
+            }
+
             // Concert 생성 (무조건 신규)
             Concert concert = Concert.fromKopisData(dto, defaultRegion, systemMember);
 
@@ -391,6 +398,13 @@ public class KopisDataSyncService {
         try {
             log.debug("신규 뮤지컬 생성 시작: {} ({})", dto.getPrfnm(), dto.getMt20id());
             fetchAndMergeDetailToDto(dto);
+
+            // 시설ID 검증
+            if(dto.getMt10id() == null || dto.getMt10id().trim().isEmpty()) {
+                log.error("상세 정보 조회 후에도 시설 ID 없음, 동기화 스킵: {} ({})", dto.getPrfnm(), dto.getMt20id());
+                result.addFailure(String.format("mt10id 없음: %s (%s)", dto.getPrfnm(), dto.getMt20id()));
+                return;
+            }
 
             // Musical 생성 (무조건 신규)
             Musical musical = Musical.fromKopisData(dto, defaultRegion, systemMember);

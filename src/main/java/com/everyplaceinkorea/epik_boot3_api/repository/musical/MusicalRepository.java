@@ -98,4 +98,8 @@ public interface MusicalRepository extends JpaRepository<Musical, Long> {
     @Query("SELECT m FROM Musical m WHERE m.kopisId IS NOT NULL " +
             "AND (m.kopisTicketOffices IS NULL OR m.kopisTicketOffices = '{}' OR m.kopisTicketOffices = '')")
     Page<Musical> findMusicalsWithoutTicketOffices(Pageable pageable);
+
+    @Query("SELECT m FROM Musical m WHERE m.kopisId IS NOT NULL " +
+            "AND (m.kopisTicketOffices IS NULL OR m.kopisTicketOffices = '{}' OR m.kopisTicketOffices = '')")
+    List<Musical> findMusicalsWithoutTicketOffices();
 }

@@ -452,7 +452,17 @@ public class DefaultConcertService implements ConcertService {
     log.debug("원본 문자열: [{}]", ticketPriceStr);
 
     try {
-      // 천단위 쉼표가 포함된 가격을 추출
+      // "전석무료" 체크
+      if(ticketPriceStr.contains("전석무료") || ticketPriceStr.contains("무료")) {
+        ConcertTicketPriceDto dto = new ConcertTicketPriceDto();
+        dto.setSeat("전석");
+        dto.setPrice("무료");
+        ticketPrices.add(dto);
+        log.info("무료 티켓 감지: 전석 무료 세팅");
+        return ticketPrices;
+      }
+
+      // 유료티켓: 천단위 쉼표가 포함된 가격을 추출
       Pattern pattern = Pattern.compile("([A-Za-z가-힣]+석?)\\s*([0-9,]+원?)");
       Matcher matcher = pattern.matcher(ticketPriceStr);
 
