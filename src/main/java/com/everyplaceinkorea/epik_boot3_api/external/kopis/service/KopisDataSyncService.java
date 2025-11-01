@@ -88,18 +88,20 @@ public class KopisDataSyncService {
             }
 
             result.complete();
-
-            log.info("[CONCERT] 장르별 동기화 통계:");
-            genreStats.forEach((genreName, count) -> {
-                log.info(" {}: {}건", genreName, count);
-            });
-
             log.info("[CONCERT] 전체 동기화 완료 통계");
+            String[] genreOrder = {"CCCA", "CCCD", "BBBC", "BBBE", "EEEA"};
+            for(String genreCode : genreOrder) {
+                if(genreStats.containsKey(genreCode)) {
+                    String genreName = KopisGenreUtil.getConcertGenreName(genreCode);
+                    log.info("  {}: {}건", genreName, genreStats.get(genreCode));
+                }
+            }
             log.info("   총 처리: {}건", result.getTotalProcessed());
             log.info("   성공: {}건", result.getSuccessCount());
             log.info("   실패: {}건", result.getFailureCount());
-            log.info("   성공률: {:.1f}%", result.getSuccessRate());
-            log.info("   소요시간: {:.2f}초", result.getDurationMs() / 1000.0);
+            log.info("   성공률: {}%", String.format("%.1f", result.getSuccessRate()));
+            log.info("   소요시간: {}초", String.format("%.2f", result.getDurationMs() / 1000.0));
+
 
             return result;
 
@@ -147,8 +149,9 @@ public class KopisDataSyncService {
             log.info("   총 처리: {}건", result.getTotalProcessed());
             log.info("   성공: {}건", result.getSuccessCount());
             log.info("   실패: {}건", result.getFailureCount());
-            log.info("   성공률: {:.1f}%", result.getSuccessRate());
-            log.info("   소요시간: {:.2f}초", result.getDurationMs() / 1000.0);
+            log.info("   성공률: {}%", String.format("%.1f", result.getSuccessRate()));
+            log.info("   소요시간: {}초", String.format("%.2f", result.getDurationMs() / 1000.0));
+
 
             return result;
 

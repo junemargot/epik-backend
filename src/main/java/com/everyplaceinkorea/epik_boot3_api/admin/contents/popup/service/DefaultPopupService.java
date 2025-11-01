@@ -63,7 +63,7 @@ public class DefaultPopupService implements PopupService {
         // 멤버 외래키
         Member member = memberRepository.findById(popupRequestDto.getWriter()).orElseThrow();
         // 카테고리 외래키
-        PopupCategory popupCategory = popupCategoryRepository.findById(popupRequestDto.getWriter()).orElseThrow();
+        PopupCategory popupCategory = popupCategoryRepository.findById(popupRequestDto.getPopupCategory()).orElseThrow();
         // 지역 외래키
         PopupRegion popupRegion = popupRegionRepository.findById(popupRequestDto.getPopupRegion()).orElseThrow();
 
