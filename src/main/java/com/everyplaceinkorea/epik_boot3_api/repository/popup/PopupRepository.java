@@ -45,10 +45,19 @@ public interface PopupRepository extends JpaRepository<Popup, Long>{
                                             Pageable pageable);
 
     // 이주의 신규 팝업 - 지역별
-    @Query("SELECT p FROM Popup p " + "JOIN p.popupRegion c " + "WHERE c.id = :regionId " + "AND p.startDate = :startDate")
+//    @Query("SELECT p FROM Popup p " + "JOIN p.popupRegion c " + "WHERE c.id = :regionId " + "AND p.startDate = :startDate")
+//    Page<Popup> findByPopupRegionAndStartDate(@Param("regionId") Long regionId,
+//                                        @Param("startDate") LocalDate startDate,
+//                                        Pageable pageable);
+
+    // 이주의 신규 팝업 - 지역별
+    @Query("SELECT p FROM Popup p " +
+            "LEFT JOIN p.popupRegion c " +
+            "WHERE (:regionId IS NULL OR c.id = :regionId) " +
+            "AND p.endDate >= :currentDate")
     Page<Popup> findByPopupRegionAndStartDate(@Param("regionId") Long regionId,
-                                        @Param("startDate") LocalDate startDate,
-                                        Pageable pageable);
+                                              @Param("currentDate") LocalDate currentDate,
+                                              Pageable pageable);
 
     //카테고리 선택 후 지역 선택
 //    @Query("SELECT p FROM Popup p " + "JOIN p.popupRegion r " + "WHERE r.id = :regionId " + "AND p.popupCategory.id = :categoryId " + "AND p.startDate = :startDate")

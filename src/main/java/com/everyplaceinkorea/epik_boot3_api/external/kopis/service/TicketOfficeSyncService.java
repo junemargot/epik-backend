@@ -167,7 +167,8 @@ public class TicketOfficeSyncService {
 
     // 3. 스크래핑 데이터 추가 (기존 데이터 덮어쓰기)
     for (TicketOfficeScrapeResult dto : scrapedOffices) {
-      result.put(dto.getOfficeName(), dto.getTicketUrl());
+      String normalizedName = normalizeOfficeName(dto.getOfficeName());
+      result.put(normalizedName, dto.getTicketUrl());
       log.debug("스크래핑 예매처 추가: {} -> {}", dto.getOfficeName(), dto.getTicketUrl());
     }
 
@@ -200,7 +201,8 @@ public class TicketOfficeSyncService {
 
     // 3. 스크래핑 데이터 추가 (기존 데이터 덮어쓰기)
     for (TicketOfficeScrapeResult dto : scrapedOffices) {
-      result.put(dto.getOfficeName(), dto.getTicketUrl());
+      String normalizedName = normalizeOfficeName(dto.getOfficeName());
+      result.put(normalizedName, dto.getTicketUrl());
       log.debug("스크래핑 예매처 추가: {} -> {}", dto.getOfficeName(), dto.getTicketUrl());
     }
 
@@ -215,18 +217,17 @@ public class TicketOfficeSyncService {
    * @return 정규화된 예매처 이름(키)
    */
   private String normalizeOfficeName(String name) {
-    if (name == null) return "other";
+    if (name == null) return "기타";
+    name = name.trim();
 
-    name = name.trim().toLowerCase();
+    if (name.contains("인터파크")) return "인터파크";
+    if (name.contains("nhn티켓링크") || name.contains("티켓링크")) return "티켓링크";
+    if (name.contains("네이버n예약") || name.contains("네이버예약")) return "네이버예약";
+    if (name.contains("yes24") || name.contains("YES24") || name.contains("예스24")) return "예스24";
+    if (name.contains("멜론티켓") || name.contains("멜론")) return "멜론티켓";
+    if (name.contains("옥션")) return "옥션";
 
-    if (name.contains("인터파크")) return "interpark";
-    if (name.contains("티켓링크")) return "ticketlink";
-    if (name.contains("yes24")) return "yes24";
-    if (name.contains("옥션")) return "auction";
-    if (name.contains("g마켓") || name.contains("지마켓")) return "gmarket";
-    if (name.contains("교보문고")) return "kyobo";
-
-    return name.replaceAll("[^a-z0-9]", "");
+    return name;
   }
 
   /**
@@ -322,7 +323,7 @@ public class TicketOfficeSyncService {
     log.info("=== 예매처 데이터가 없는 최근 15개 예매처 정보 업데이트 시작 ===");
     log.info("테스트 시작시간: {}", startTime);
 
-    Pageable pageable = PageRequest.of(0, 15, Sort.by("id").descending());
+    Pageable pageable = PageRequest.of(0, 50, Sort.by("id").descending());
     Page<Musical> musicalPage = musicalRepository.findMusicalsWithoutTicketOffices(pageable);
     List<Musical> musicals = musicalPage.getContent();
 

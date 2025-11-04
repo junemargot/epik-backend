@@ -27,9 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -47,11 +45,9 @@ public class KopisDataSyncService {
     private final HallRepository hallRepository;
 
     public SyncResult syncConcerts() {
-        log.info("=== Concert 기본 동기화 시작 ===");
         LocalDate now = LocalDate.now();
         String startDate = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String endDate = now.plusMonths(6).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        log.info("Concert 동기화 기간: {} ~ {} (오늘부터 6개월)", startDate, endDate);
         return syncConcerts(startDate, endDate);
     }
 
@@ -65,13 +61,15 @@ public class KopisDataSyncService {
         try {
             Member systemMember = getSystemMember();
             Region defaultRegion = getDefaultRegion();
-
             String[] concertCodes = KopisGenreUtil.ConcertGenre.getAllCodes();
+            Map<String, Integer> genreStats = new HashMap<>();
+            log.info("콘서트 동기화 대상 장르: {}개", concertCodes.length);
 
             // 장르별 조회 및 처리
             for (String genreCode : concertCodes) {
                 String genreName = KopisGenreUtil.getConcertGenreName(genreCode);
                 log.info("콘서트 장르 {} 조회 시작 - {}", genreCode, genreName);
+                int beforeCount = result.getSuccessCount(); // 해당 장르 처리 전 성공 건수
 
                 try {
                     syncByGenrePaginated(
@@ -82,11 +80,28 @@ public class KopisDataSyncService {
                     result.addFailure(String.format("콘서트 장르 %s (%s) 동기화 실패: %s",
                             genreCode, genreName, e.getMessage()));
                 }
+
+                int afterCount = result.getSuccessCount();
+                int genreProcessed = afterCount - beforeCount;
+                genreStats.put(genreCode, genreProcessed);
+                log.info("장르 '{}' 처리 완료: {}건", genreName, genreProcessed);
             }
 
             result.complete();
-            log.info("=== Concert 동기화 완료: 총 {}건 처리 (성공: {}, 실패: {}) ===",
-                    result.getTotalProcessed(), result.getSuccessCount(), result.getFailureCount());
+            log.info("[CONCERT] 전체 동기화 완료 통계");
+            String[] genreOrder = {"CCCA", "CCCD", "BBBC", "BBBE", "EEEA"};
+            for(String genreCode : genreOrder) {
+                if(genreStats.containsKey(genreCode)) {
+                    String genreName = KopisGenreUtil.getConcertGenreName(genreCode);
+                    log.info("  {}: {}건", genreName, genreStats.get(genreCode));
+                }
+            }
+            log.info("   총 처리: {}건", result.getTotalProcessed());
+            log.info("   성공: {}건", result.getSuccessCount());
+            log.info("   실패: {}건", result.getFailureCount());
+            log.info("   성공률: {}%", String.format("%.1f", result.getSuccessRate()));
+            log.info("   소요시간: {}초", String.format("%.2f", result.getDurationMs() / 1000.0));
+
 
             return result;
 
@@ -99,11 +114,9 @@ public class KopisDataSyncService {
     }
 
     public SyncResult syncMusicals() {
-        log.info("=== Musical 기본 동기화 시작 ===");
         LocalDate now = LocalDate.now();
         String startDate = now.format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String endDate = now.plusMonths(6).format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        log.info("Musical 동기화 기간: {} ~ {} (오늘부터 6개월)", startDate, endDate);
         return syncMusicals(startDate, endDate);
     }
 
@@ -132,8 +145,13 @@ public class KopisDataSyncService {
             }
 
             result.complete();
-            log.info("=== Musical 동기화 완료: 총 {}건 처리 (성공: {}, 실패: {}) ===",
-                    result.getTotalProcessed(), result.getSuccessCount(), result.getFailureCount());
+            log.info("[MUSICAL] 전체 동기화 완료 통계");
+            log.info("   총 처리: {}건", result.getTotalProcessed());
+            log.info("   성공: {}건", result.getSuccessCount());
+            log.info("   실패: {}건", result.getFailureCount());
+            log.info("   성공률: {}%", String.format("%.1f", result.getSuccessRate()));
+            log.info("   소요시간: {}초", String.format("%.2f", result.getDurationMs() / 1000.0));
+
 
             return result;
 
@@ -163,6 +181,13 @@ public class KopisDataSyncService {
                 if(xmlResponse != null) {
                     // 응답데이터(xml) 파싱
                     List<KopisPerformanceDto> performances = parseXmlToPerformanceList(xmlResponse);
+                    String genreName = "CONCERT".equals(syncType) ?
+                            KopisGenreUtil.getConcertGenreName(genreCode) :
+                            KopisGenreUtil.getMusicalGenreName(genreCode);
+
+                    log.info(" [{}] 장르 '{}' - {}페이지: API 요청 100개, 실제 응답 {}개",
+                            syncType, genreName, pageNum, performances.size());
+
                     log.debug("{} 장르 {} - {}페이지: {}개 데이터 수신",
                             syncType, genreCode, pageNum, performances.size());
 
@@ -213,12 +238,6 @@ public class KopisDataSyncService {
                 hasMoreData = false;
             }
         }
-
-        String genreName = "CONCERT".equals(syncType) ?
-                KopisGenreUtil.getConcertGenreName(genreCode) :
-                KopisGenreUtil.getMusicalGenreName(genreCode);
-
-        log.info("{} 장르 {} 동기화 완료: {}건 처리", syncType, genreName, totalProcessedForGenre);
     }
 
     // 동기화 스킵 여부 판단 - DB에 존재하면 스킵

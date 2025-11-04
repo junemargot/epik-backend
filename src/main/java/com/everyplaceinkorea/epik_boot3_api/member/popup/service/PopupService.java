@@ -8,4 +8,6 @@ import java.util.List;
 public interface PopupService {
     // 북마크
     List<PopupResponseDto> getBookmark(Long id);
+    boolean isBookmarked(Long popupId, Long memberId);
+    boolean toggleBookmark(Long popupId, Long memberId);
 }

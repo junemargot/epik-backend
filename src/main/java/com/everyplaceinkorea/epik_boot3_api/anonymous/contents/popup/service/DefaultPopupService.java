@@ -63,28 +63,33 @@ public class DefaultPopupService implements PopupService {
     @Override
     public List<PopupResponseDto> getPopupsFindByRegionAndStartDate(Long regionId, Integer page)  {
 
-        // 정렬 기준 만들기
-        Sort sort = Sort.by("id").descending();
-        // 페이징조건 만들기
-        Pageable pageable = PageRequest.of(page - 1, 15, sort);
+      // 정렬 기준 만들기
+      Sort sort = Sort.by("id").descending();
+      // 페이징조건 만들기
+      Pageable pageable = PageRequest.of(page - 1, 15, sort);
 
-        LocalDate now = LocalDate.now();
-        System.out.println("오늘날짜: " + now);
-        Page<Popup> popups = popupRepository.findByPopupRegionAndStartDate(regionId, LocalDate.now(), pageable);
+      LocalDate now = LocalDate.now();
+      System.out.println("오늘날짜: " + now);
+      Page<Popup> popups = popupRepository.findByPopupRegionAndStartDate(regionId, LocalDate.now(), pageable);
 
-        List<PopupResponseDto> responseDtos = popups
-                .getContent()
-                .stream()
-                .map(Popup ->{
-                    PopupResponseDto responseDto = modelMapper.map(Popup, PopupResponseDto.class);
-                    System.out.println("Mapped DTO: " + responseDto); // 변환된 DTO 출력
-                    return responseDto;
-                })
-                .toList();
+      List<PopupResponseDto> responseDtos = popups
+          .getContent()
+          .stream()
+          .map(Popup -> {
+              List<PopupImage> allByPopupId = popupImageRepository.findAllByPopupId(Popup.getId());
+              PopupResponseDto responseDto = modelMapper.map(Popup, PopupResponseDto.class);
 
-        return responseDtos;
+            if (!allByPopupId.isEmpty()) {
+              responseDto.setImgSavedName(allByPopupId.get(0).getImgSavedName());
+            }
+            System.out.println("Mapped DTO: " + responseDto); // 변환된 DTO 출력
+            return responseDto;
+          })
+          .toList();
 
-    }
+      return responseDtos;
+
+  }
 
     //카테고리 선택 후 지역 선택
     @Override
