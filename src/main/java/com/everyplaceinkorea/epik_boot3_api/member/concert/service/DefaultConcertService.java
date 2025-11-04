@@ -41,6 +41,7 @@ public class DefaultConcertService implements ConcertService {
                         .endDate(concert.getEndDate())
                         .venue(concert.getVenue())
                         .saveImageName(concert.getFileSavedName())
+                        .kopisPoster(concert.getKopisPoster())
                         .build())
                 .collect(Collectors.toList());
     }

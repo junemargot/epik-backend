@@ -41,6 +41,7 @@ public class DefaultMusicalService implements MusicalService {
                         .endDate(musical.getEndDate())
                         .venue(musical.getVenue())
                         .saveImageName(musical.getFileSavedName())
+                        .kopisPoster(musical.getKopisPoster())
                         .build())
                 .collect(Collectors.toList());
     }
