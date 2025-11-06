@@ -38,7 +38,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
   @Query(value = "SELECT * FROM concert ORDER BY RAND() LIMIT 10", nativeQuery = true)
   List<Concert> findConcertByRandom();
 
-  @Query(value = "SELECT * FROM concert WHERE end_date >= :today ORDER BY RAND() LIMIT 10", nativeQuery = true)
+  @Query(value = "SELECT * FROM concert WHERE end_date >= :today ORDER BY RAND() LIMIT 16", nativeQuery = true)
   List<Concert> findActiveConcertByRandom(@Param("today") LocalDate today);
 
   Optional<Concert> findByKopisId(String kopisId);
@@ -71,4 +71,12 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
   @Query("SELECT c FROM Concert c WHERE c.kopisId IS NOT NULL " +
           "AND (c.kopisTicketOffices IS NULL OR c.kopisTicketOffices = '{}' OR c.kopisTicketOffices = '')")
   List<Concert> findConcertsWithoutTicketOffices();
+
+  @Query("SELECT c FROM Concert c WHERE " +
+        "(:genreName IS NULL OR c.kopisGenrenm LIKE %:genreName%) " +
+        "AND c.endDate >= :today " +
+        "AND c.status = 'ACTIVE' " +
+        "ORDER BY c.startDate ASC")
+  List<Concert> findConcertsByGenre(@Param("genreName") String genreName,
+                                    @Param("today") LocalDate today);
 }

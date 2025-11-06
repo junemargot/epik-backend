@@ -33,5 +33,10 @@ public class ConcertController {
                 .body(concertService.getConcertsByRandom());
     }
 
-
+    // 장르별 조회
+    @GetMapping("/genre")
+    public ResponseEntity<List<ConcertResponseDto>> getConcertsByGenre(
+            @RequestParam(name = "genreName", required = false) String genreName) {
+        return ResponseEntity.status(OK).body(concertService.getConcertsByGenre(genreName));
+    }
 }

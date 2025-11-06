@@ -31,12 +31,18 @@ public class DefaultConcertService implements ConcertService {
         Pageable pageable = PageRequest.of(page - 1, 15, sort);
 
         Page<Concert> concerts = concertRepository.findConcertsByRegion(regionId, LocalDate.now(), pageable);
-//        concerts.getContent().forEach(System.out::println);
         List<ConcertResponseDto> responseDtos = concerts
                 .getContent()
                 .stream()
-                .map(Concert ->{
-                    ConcertResponseDto responseDto = modelMapper.map(Concert, ConcertResponseDto.class);
+                .map(concert ->{
+                    ConcertResponseDto responseDto = modelMapper.map(concert, ConcertResponseDto.class);
+                    responseDto.setDataSource(concert.getDataSource());
+                    if(concert.getDataSource() == DataSource.KOPIS_API) {
+                      responseDto.setImageUrl(concert.getKopisPoster());
+                      responseDto.setFileSavedName(concert.getFileSavedName());
+                    } else {
+                      responseDto.setFileSavedName(concert.getFileSavedName());
+                    }
                     return responseDto;
                 })
                 .toList();
@@ -69,5 +75,26 @@ public class DefaultConcertService implements ConcertService {
               })
               .toList();
     }
+
+  @Override
+  public List<ConcertResponseDto> getConcertsByGenre(String genreName) {
+    LocalDate today = LocalDate.now();
+    List<Concert> concerts = concertRepository.findConcertsByGenre(genreName, today);
+
+    return concerts.stream()
+            .map(concert -> {
+              ConcertResponseDto dto = modelMapper.map(concert, ConcertResponseDto.class);
+
+              dto.setDataSource(concert.getDataSource());
+              if(concert.getDataSource() == DataSource.KOPIS_API) {
+                dto.setImageUrl(concert.getKopisPoster());
+                dto.setFileSavedName(concert.getFileSavedName());
+              } else {
+                dto.setFileSavedName(concert.getFileSavedName());
+              }
+
+              return dto;
+            }).toList();
+  }
 
 }

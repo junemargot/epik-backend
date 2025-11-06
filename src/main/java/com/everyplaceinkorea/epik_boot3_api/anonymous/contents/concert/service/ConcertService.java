@@ -7,5 +7,6 @@ import java.util.List;
 public interface ConcertService {
     List<ConcertResponseDto> getConcertsByRegion(Long regionId, Integer page);
     List<ConcertResponseDto> getConcertsByRandom();
+    List<ConcertResponseDto> getConcertsByGenre(String genreName);
 }
 
