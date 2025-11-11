@@ -33,30 +33,68 @@ public class DefaultConcertService implements ConcertService {
                 .toList();
     }
 
-    // 콘서트 랜덤 조회
+  @Override
+  public List<ConcertResponseDto> getConcertsByRegion(Long regionId) {
+    LocalDate today = LocalDate.now();
+    return concertRepository.findAllConcertsByRegion(regionId, today)
+            .stream()
+            .map(this::mapToResponseDto)
+            .toList();
+  }
+
+  // 콘서트 랜덤 조회
     @Override
-    public List<ConcertResponseDto> getConcertsByRandom() {
+    public List<ConcertResponseDto> getConcertsByRandom(Integer page) {
       LocalDate today = LocalDate.now();
-      return concertRepository.findActiveConcertByRandom(today)
+      Pageable pageable = PageRequest.of(page - 1, 50);
+      return concertRepository.findActiveConcertByRandom(today, pageable)
               .stream()
               .map(this::mapToResponseDto)
               .toList();
     }
 
   @Override
-  public List<ConcertResponseDto> getConcertsByGenre(String genreName) {
+  public List<ConcertResponseDto> getConcertsByRandom() {
     LocalDate today = LocalDate.now();
-    return concertRepository.findConcertsByGenre(genreName, today)
+    return concertRepository.findAllActiveConcertByRandom(today)
             .stream()
             .map(this::mapToResponseDto)
             .toList();
   }
+
+  @Override
+  public List<ConcertResponseDto> getConcertsByGenre(String genreName, Integer page) {
+    LocalDate today = LocalDate.now();
+    Sort sort = Sort.by("startDate").ascending();
+    Pageable pageable = PageRequest.of(page - 1, 15, sort);
+    Page<Concert> concertPage = concertRepository.findConcertsByGenre(genreName, today, pageable);
+    return concertPage.getContent()
+            .stream()
+            .map(this::mapToResponseDto)
+            .toList();
+  }
+
+  @Override
+  public List<ConcertResponseDto> getConcertsByGenre(String genreName) {
+    LocalDate today = LocalDate.now();
+    return concertRepository.findAllConcertsByGenre(genreName, today)
+            .stream()
+            .map(this::mapToResponseDto)
+            .toList();
+  }
+
 
   private ConcertResponseDto mapToResponseDto(Concert concert) {
     ConcertResponseDto dto = modelMapper.map(concert, ConcertResponseDto.class);
 
     // 데이터 소스 설정
     dto.setDataSource(concert.getDataSource());
+
+    // 장르 정보 설정
+    dto.setGenreName(concert.getKopisGenrenm());
+
+    // 지역 설정
+    dto.setRegionName(concert.getKopisArea());
 
     // 이미지 처리: KOPIS API 데이터인 경우 원본 포스터 URL 사용
     if(concert.getDataSource() == DataSource.KOPIS_API) {

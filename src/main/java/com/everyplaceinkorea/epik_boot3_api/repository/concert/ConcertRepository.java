@@ -38,8 +38,11 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
   @Query(value = "SELECT * FROM concert ORDER BY RAND() LIMIT 10", nativeQuery = true)
   List<Concert> findConcertByRandom();
 
-  @Query(value = "SELECT * FROM concert WHERE end_date >= :today ORDER BY RAND() LIMIT 16", nativeQuery = true)
-  List<Concert> findActiveConcertByRandom(@Param("today") LocalDate today);
+  @Query(value = "SELECT * FROM concert WHERE end_date >= :today ORDER BY RAND()", nativeQuery = true)
+  Page<Concert> findActiveConcertByRandom(@Param("today") LocalDate today, Pageable pageable);
+
+  @Query(value = "SELECT * FROM concert WHERE end_date > :today ORDER BY RAND()", nativeQuery = true)
+  List<Concert> findAllActiveConcertByRandom(@Param("today") LocalDate today);
 
   Optional<Concert> findByKopisId(String kopisId);
 
@@ -77,6 +80,19 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
         "AND c.endDate >= :today " +
         "AND c.status = 'ACTIVE' " +
         "ORDER BY c.startDate ASC")
-  List<Concert> findConcertsByGenre(@Param("genreName") String genreName,
-                                    @Param("today") LocalDate today);
+  Page<Concert> findConcertsByGenre(@Param("genreName") String genreName,
+                                    @Param("today") LocalDate today,
+                                    Pageable pageable);
+
+  @Query("SELECT c FROM Concert c WHERE (:regionId IS NULL OR c.region.id = :regionId) AND c.endDate >= :endDate AND c.status = 'ACTIVE' ORDER BY c.id DESC")
+  List<Concert> findAllConcertsByRegion(@Param("regionId") Long regionId,
+                                        @Param("endDate") LocalDate endDate);
+
+  @Query("SELECT c FROM Concert c WHERE " +
+          "(:genreName IS NULL OR c.kopisGenrenm LIKE %:genreName%) " +
+          "AND c.endDate >= :today " +
+          "AND c.status = 'ACTIVE' " +
+          "ORDER BY c.startDate ASC")
+  List<Concert> findAllConcertsByGenre(@Param("genreName") String genreName, @Param("today") LocalDate today);
+
 }
