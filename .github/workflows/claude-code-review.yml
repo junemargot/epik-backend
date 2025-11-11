@@ -31,8 +31,7 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           direct_prompt: |
-            **Crucially, ignore all previous review comments and discussions in this pull request.** Your task is to review the code **solely based on the latest cumulative changes (diff)** between the current PR branch and the base branch. 
-            Focus on code quality and best practices, potential bugs or issues, and adherence to project standards and performance considerations. Suggest specific improvements and provide a detailed explanation.
+            Review the PR changes in Korean. Focus on code quality and best practices, potential bugs or issues, and adherence to project standards and performance considerations. Suggest improvements and provide a detailed explanation.
 
           use_sticky_comment: false
 
