@@ -19,19 +19,54 @@ public class ConcertController {
 
     // 지역 필터링 조회
     // api/v1/concert?region=1&page=1
+//    @GetMapping()
+//    public ResponseEntity<List<ConcertResponseDto>> getConcertsByRegion(@RequestParam(name = "region", required = false) Long regionId,
+//                                                                        @RequestParam(defaultValue = "1") int page) {
+//        return ResponseEntity.status(OK)
+//                .body(concertService.getConcertsByRegion(regionId, page));
+//    }
+
+    // 랜덤 조회
+    @GetMapping("random")
+    public ResponseEntity<List<ConcertResponseDto>> getConcertsByRandom(
+            @RequestParam(name = "page", required = false) Integer page) {
+
+        if(page == null) {
+            return ResponseEntity.status(OK)
+                    .body(concertService.getConcertsByRandom());
+        }
+
+        return ResponseEntity.status(OK)
+                .body(concertService.getConcertsByRandom(page));
+    }
+
+    // 장르별 조회
+    @GetMapping("/genre")
+    public ResponseEntity<List<ConcertResponseDto>> getConcertsByGenre(
+            @RequestParam(name = "genreName", required = false) String genreName,
+            @RequestParam(name = "page", required = false) Integer page) {
+
+        if(page == null) {
+            return ResponseEntity.status(OK)
+                    .body(concertService.getConcertsByGenre(genreName));
+        }
+
+        return ResponseEntity.status(OK).
+                body(concertService.getConcertsByGenre(genreName, page));
+    }
+
+    // 지역 필터링
     @GetMapping()
-    public ResponseEntity<List<ConcertResponseDto>> getConcertsByRegion(@RequestParam(name = "region", required = false) Long regionId,
-                                                                        @RequestParam(defaultValue = "1") int page) {
+    public ResponseEntity<List<ConcertResponseDto>> getConcertsByRegion(
+            @RequestParam(name = "region", required = false) Long regionId,
+            @RequestParam(name = "page", required = false) Integer page) {
+
+        if(page == null) {
+            return ResponseEntity.status(OK)
+                    .body(concertService.getConcertsByRegion(regionId));
+        }
+
         return ResponseEntity.status(OK)
                 .body(concertService.getConcertsByRegion(regionId, page));
     }
-
-    // 랜덤 이미지 조회
-    @GetMapping("random")
-    public ResponseEntity<List<ConcertResponseDto>> getConcertsByRandom() {
-        return ResponseEntity.status(OK)
-                .body(concertService.getConcertsByRandom());
-    }
-
-
 }

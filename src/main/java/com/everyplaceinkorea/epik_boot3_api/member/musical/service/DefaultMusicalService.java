@@ -41,6 +41,7 @@ public class DefaultMusicalService implements MusicalService {
                         .endDate(musical.getEndDate())
                         .venue(musical.getVenue())
                         .saveImageName(musical.getFileSavedName())
+                        .kopisPoster(musical.getKopisPoster())
                         .build())
                 .collect(Collectors.toList());
     }
@@ -74,7 +75,7 @@ public class DefaultMusicalService implements MusicalService {
             Musical musical = musicalRepository.findById(musicalId)
                     .orElseThrow(() -> new EntityNotFoundException("Musical not found with id: " + musicalId));
             Member member = memberRepository.findById(memberId)
-                    .orElseThrow(() -> new RuntimeException("Member not found with id: " + memberId));
+                    .orElseThrow(() -> new EntityNotFoundException("Member not found with id: " + memberId));
 
             MusicalBookmark newBookmark = new MusicalBookmark();
             newBookmark.setId(id);

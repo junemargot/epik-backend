@@ -24,50 +24,87 @@ public class DefaultConcertService implements ConcertService {
 
     @Override
     public List<ConcertResponseDto> getConcertsByRegion(Long regionId, Integer page) {
-
-        // 정렬 기준 만들기
         Sort sort = Sort.by("id").descending();
-        // 페이징조건 만들기
         Pageable pageable = PageRequest.of(page - 1, 15, sort);
-
-        Page<Concert> concerts = concertRepository.findConcertsByRegion(regionId, LocalDate.now(), pageable);
-//        concerts.getContent().forEach(System.out::println);
-        List<ConcertResponseDto> responseDtos = concerts
+        return concertRepository.findConcertsByRegion(regionId, LocalDate.now(), pageable)
                 .getContent()
                 .stream()
-                .map(Concert ->{
-                    ConcertResponseDto responseDto = modelMapper.map(Concert, ConcertResponseDto.class);
-                    return responseDto;
-                })
+                .map(this::mapToResponseDto)
                 .toList();
-
-        return responseDtos;
     }
 
-    // 콘서트 랜덤 조회
+  @Override
+  public List<ConcertResponseDto> getConcertsByRegion(Long regionId) {
+    LocalDate today = LocalDate.now();
+    return concertRepository.findAllConcertsByRegion(regionId, today)
+            .stream()
+            .map(this::mapToResponseDto)
+            .toList();
+  }
+
+  // 콘서트 랜덤 조회
     @Override
-    public List<ConcertResponseDto> getConcertsByRandom() {
+    public List<ConcertResponseDto> getConcertsByRandom(Integer page) {
       LocalDate today = LocalDate.now();
-      List<Concert> concerts = concertRepository.findActiveConcertByRandom(today);
-
-      return concerts.stream()
-              .map(concert -> {
-                ConcertResponseDto dto = modelMapper.map(concert, ConcertResponseDto.class);
-
-                // 데이터 소스 설정
-                dto.setDataSource(concert.getDataSource());
-                
-                // 이미지 처리 로직 개선
-                if(concert.getDataSource() == DataSource.KOPIS_API) {
-                  dto.setImageUrl(concert.getKopisPoster()); // KOPIS 원본 포스터 URL
-                  dto.setFileSavedName(concert.getFileSavedName()); // 파일명 설정
-                } else {
-                  dto.setFileSavedName(concert.getFileSavedName());
-                }
-
-                return dto;
-              })
+      Pageable pageable = PageRequest.of(page - 1, 50);
+      return concertRepository.findActiveConcertByRandom(today, pageable)
+              .stream()
+              .map(this::mapToResponseDto)
               .toList();
     }
+
+  @Override
+  public List<ConcertResponseDto> getConcertsByRandom() {
+    LocalDate today = LocalDate.now();
+    return concertRepository.findAllActiveConcertByRandom(today)
+            .stream()
+            .map(this::mapToResponseDto)
+            .toList();
+  }
+
+  @Override
+  public List<ConcertResponseDto> getConcertsByGenre(String genreName, Integer page) {
+    LocalDate today = LocalDate.now();
+    Sort sort = Sort.by("startDate").ascending();
+    Pageable pageable = PageRequest.of(page - 1, 15, sort);
+    Page<Concert> concertPage = concertRepository.findConcertsByGenre(genreName, today, pageable);
+    return concertPage.getContent()
+            .stream()
+            .map(this::mapToResponseDto)
+            .toList();
+  }
+
+  @Override
+  public List<ConcertResponseDto> getConcertsByGenre(String genreName) {
+    LocalDate today = LocalDate.now();
+    return concertRepository.findAllConcertsByGenre(genreName, today)
+            .stream()
+            .map(this::mapToResponseDto)
+            .toList();
+  }
+
+
+  private ConcertResponseDto mapToResponseDto(Concert concert) {
+    ConcertResponseDto dto = modelMapper.map(concert, ConcertResponseDto.class);
+
+    // 데이터 소스 설정
+    dto.setDataSource(concert.getDataSource());
+
+    // 장르 정보 설정
+    dto.setGenreName(concert.getKopisGenrenm());
+
+    // 지역 설정
+    dto.setRegionName(concert.getKopisArea());
+
+    // 이미지 처리: KOPIS API 데이터인 경우 원본 포스터 URL 사용
+    if(concert.getDataSource() == DataSource.KOPIS_API) {
+      dto.setImageUrl(concert.getKopisPoster());
+    }
+
+    // 모든 경우에 파일명 설정
+    dto.setFileSavedName(concert.getFileSavedName());
+
+    return dto;
+  }
 
 }

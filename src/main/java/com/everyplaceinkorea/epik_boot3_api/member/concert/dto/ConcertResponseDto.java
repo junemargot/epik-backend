@@ -21,4 +21,5 @@ public class ConcertResponseDto {
     private String venue;
     // 사진
     private String saveImageName;
+    private String kopisPoster;
 }
