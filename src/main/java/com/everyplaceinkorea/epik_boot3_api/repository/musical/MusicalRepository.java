@@ -102,4 +102,30 @@ public interface MusicalRepository extends JpaRepository<Musical, Long> {
     @Query("SELECT m FROM Musical m WHERE m.kopisId IS NOT NULL " +
             "AND (m.kopisTicketOffices IS NULL OR m.kopisTicketOffices = '{}' OR m.kopisTicketOffices = '')")
     List<Musical> findMusicalsWithoutTicketOffices();
+
+    long countByStatus(Status status);
+
+    long countByStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+            Status status, LocalDate startDate, LocalDate endDate);
+
+    long countByWriteDateBetween(LocalDateTime start, LocalDateTime end);
+
+    @Query("SELECT mr.region, COUNT(m) " +
+            "FROM Musical m " +
+            "JOIN m.region mr " +
+            "WHERE m.status = :status " +
+            "GROUP BY mr.region")
+    List<Object[]> countByRegionGrouped(@Param("status") Status status);
+
+//    @Query("SELECT m.kopisGenrenm, COUNT(m) " +
+//            "FROM Musical m " +
+//            "WHERE m.status = :status " +
+//            "AND m.kopisGenrenm IS NOT NULL " +
+//            "GROUP BY m.kopisGenrenm")
+//    List<Object[]> countByGenreGrouped(@Param("status") Status status);
+
+    @Query("SELECT MAX(m.lastSynced) " +
+            "FROM Musical m " +
+            "WHERE m.dataSource = 'KOPIS_API'")
+    Optional<LocalDateTime> findMaxLastSynced();
 }
