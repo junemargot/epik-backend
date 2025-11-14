@@ -60,7 +60,7 @@ public class SecurityConfig {
                     .requestMatchers("/api/v1/auth/**", "/login/**", "/images/**", "/uploads/**", "/api/v1/uploads/**",
                                     "/oauth2/**", "/oauth2/authorization/**", "/login/oauth2/code/**",
                                     "/popup/random", "/concert/random", "/musical/random", "/exhibition/random",
-                                    "/admin/kopis/**").permitAll() // KOPIS 관리 API 허용 추가
+                                    "/admin/kopis/**", "/admin/dashboard/**").permitAll() // KOPIS 관리 API 허용 추가
                     .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                     .anyRequest().permitAll()

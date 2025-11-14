@@ -1,6 +1,5 @@
 package com.everyplaceinkorea.epik_boot3_api.entity.musical;
 
-import com.everyplaceinkorea.epik_boot3_api.admin.contents.musical.enums.Status;
 import com.everyplaceinkorea.epik_boot3_api.entity.Facility;
 import com.everyplaceinkorea.epik_boot3_api.entity.Hall;
 import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
