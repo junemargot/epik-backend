@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Getter
 @Builder
@@ -23,4 +24,5 @@ public class DashboardStatsDto {
     private List<RegionStatsDto> regionStats;
     private List<GenreStatsDto> genreStats;
     private LocalDateTime lastKopisSyncTime;
+    private Map<String, Long> ongoingContentsByType;
 }

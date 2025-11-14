@@ -40,6 +40,7 @@ public class DashboardService {
         
         ContentCounts contentCounts = getTotalContentCounts();
         long ongoingContents = getOngoingContentCounts(today);
+        Map<String, Long> onGoingContentsByType = getOngoingContentsByType(today);
         long todayContents = getTodayContentCounts();
         List<RegionStatsDto> regionStats = getRegionStats();
         List<GenreStatsDto> genreStats = getGenreStats();
@@ -51,6 +52,7 @@ public class DashboardService {
         return DashboardStatsDto.builder()
                 .totalContents(contentCounts.total)
                 .ongoingContents(ongoingContents)
+                .ongoingContentsByType(onGoingContentsByType)
                 .todayContents(todayContents)
                 .totalConcerts(contentCounts.concerts)
                 .totalMusicals(contentCounts.musicals)
@@ -116,6 +118,38 @@ public class DashboardService {
         return total;
     }
 
+    private Map<String, Long> getOngoingContentsByType(LocalDate today) {
+        Map<String, Long> result = new HashMap<>();
+
+        long onGoingConcerts = concertRepository
+                .countByStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+                        Status.ACTIVE, today, today
+                );
+
+        long ongoingMusicals = musicalRepository
+                .countByStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+                        Status.ACTIVE, today, today
+                );
+
+        long ongoingExhibitions = exhibitionRepository
+                .countByStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+                        Status.ACTIVE, today, today
+                );
+
+        long ongoingPopups = popupRepository
+                .countByStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+                        com.everyplaceinkorea.epik_boot3_api.admin.contents.popup.enums.Status.ACTIVE,
+                        today, today
+                );
+
+        result.put("concerts", onGoingConcerts);
+        result.put("musicals", ongoingMusicals);
+        result.put("exhibitions", ongoingExhibitions);
+        result.put("popups", ongoingPopups);
+
+        return result;
+    }
+
     /**
      * 오늘 등록된 콘텐츠 수 조회
      * @return 오늘 등록된 콘텐츠 총 수
@@ -139,6 +173,8 @@ public class DashboardService {
 
     /**
      * 지역별 콘텐츠 분포 통계 조회
+     * Popup은 제외 (성수, 강남 등 서울 내 특정 지역에 집중됨)
+     * Concert, Musical, Exhibition만 집계
      * @return 지역별 통계 리스트 (카운트 내림차순)
      */
     private List<RegionStatsDto> getRegionStats() {
@@ -165,14 +201,14 @@ public class DashboardService {
             regionMap.merge(regionName, count, Long::sum);
         }
         
-        List<Object[]> popupRegions = popupRepository.countByRegionGrouped(
-            com.everyplaceinkorea.epik_boot3_api.admin.contents.popup.enums.Status.ACTIVE
-        );
-        for (Object[] row : popupRegions) {
-            String regionName = (String) row[0];
-            Long count = (Long) row[1];
-            regionMap.merge(regionName, count, Long::sum);
-        }
+//        List<Object[]> popupRegions = popupRepository.countByRegionGrouped(
+//            com.everyplaceinkorea.epik_boot3_api.admin.contents.popup.enums.Status.ACTIVE
+//        );
+//        for (Object[] row : popupRegions) {
+//            String regionName = (String) row[0];
+//            Long count = (Long) row[1];
+//            regionMap.merge(regionName, count, Long::sum);
+//        }
         
         List<RegionStatsDto> regionStats = regionMap.entrySet().stream()
             .map(entry -> new RegionStatsDto(entry.getKey(), entry.getValue()))
