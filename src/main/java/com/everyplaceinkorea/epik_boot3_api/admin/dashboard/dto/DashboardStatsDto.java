@@ -25,4 +25,5 @@ public class DashboardStatsDto {
     private List<GenreStatsDto> genreStats;
     private LocalDateTime lastKopisSyncTime;
     private Map<String, Long> ongoingContentsByType;
+    private Map<String, Long> todayContentsByType;
 }

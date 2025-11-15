@@ -42,6 +42,7 @@ public class DashboardService {
         long ongoingContents = getOngoingContentCounts(today);
         Map<String, Long> onGoingContentsByType = getOngoingContentsByType(today);
         long todayContents = getTodayContentCounts();
+        Map<String, Long> todayContentsByType = getTodayContentsByType();
         List<RegionStatsDto> regionStats = getRegionStats();
         List<GenreStatsDto> genreStats = getGenreStats();
         LocalDateTime lastSyncTime = getLastKopisSyncTime();
@@ -54,6 +55,7 @@ public class DashboardService {
                 .ongoingContents(ongoingContents)
                 .ongoingContentsByType(onGoingContentsByType)
                 .todayContents(todayContents)
+                .todayContentsByType(todayContentsByType)
                 .totalConcerts(contentCounts.concerts)
                 .totalMusicals(contentCounts.musicals)
                 .totalExhibitions(contentCounts.exhibitions)
@@ -169,6 +171,25 @@ public class DashboardService {
         log.debug("오늘 등록된 콘텐츠 - 총 {}건", total);
         
         return total;
+    }
+
+    private Map<String, Long> getTodayContentsByType() {
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfDay = today.atStartOfDay();
+        LocalDateTime endOfDay = today.atTime(23, 59, 59, 999999999);
+
+        Map<String, Long> result = new HashMap<>();
+        long todayConcerts = concertRepository.countByWriteDateBetween(startOfDay, endOfDay);
+        long todayMusicals = musicalRepository.countByWriteDateBetween(startOfDay, endOfDay);
+        long todayExhibitions = exhibitionRepository.countByWriteDateBetween(startOfDay, endOfDay);
+        long todayPopups = popupRepository.countByWriteDateBetween(startOfDay, endOfDay);
+
+        result.put("concerts", todayConcerts);
+        result.put("musicals", todayMusicals);
+        result.put("exhibitions", todayExhibitions);
+        result.put("popups", todayPopups);
+
+        return result;
     }
 
     /**
