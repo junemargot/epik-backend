@@ -7,7 +7,9 @@ import com.everyplaceinkorea.epik_boot3_api.entity.feed.Feed;
 import com.everyplaceinkorea.epik_boot3_api.entity.feed.FeedImage;
 import com.everyplaceinkorea.epik_boot3_api.repository.comment.FeedCommentRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.feed.FeedImageRepository;
+import com.everyplaceinkorea.epik_boot3_api.repository.feed.FeedLikeRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.feed.FeedRepository;
+import com.everyplaceinkorea.epik_boot3_api.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -21,111 +23,94 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DefaultFeedService implements FeedService {
 
-  private final FeedRepository feedRepository;
-  private final FeedImageRepository feedImageRepository;
-  private final FeedCommentRepository feedCommentRepository;
+    private final FeedRepository feedRepository;
+    private final FeedImageRepository feedImageRepository;
+    private final FeedCommentRepository feedCommentRepository;
+    private final FeedLikeRepository feedLikeRepository;
 
-  @Override
-  public List<FeedResponseDto> getFeeds(Long lastId) {
-    // 자 이제 lastId를 사용해 리스트 뽑아오기
-    Pageable pageable = PageRequest.of(0, 15, Sort.by("id").ascending());
-    List<Feed> feeds = feedRepository.findFeedsByLastId(lastId, pageable);
-    // feedid를 통해 아까처럼 불러오면 되겠다.
-    List<FeedResponseDto> feedResponseDtos = new ArrayList<>();
-    List<FeedCommentDto> commentDtos = new ArrayList<>();
+    @Override
+    public List<FeedResponseDto> getFeeds(Long lastId) {
+        Pageable pageable = PageRequest.of(0, 15, Sort.by("id").ascending());
 
-    // 여기서 feed하나씩 꺼내서 그 번호로 다른 테이블에 접근한다.
-    for (Feed feed : feeds) {
-      Long feedId = feed.getId(); // feedId
-      FeedResponseDto responseDto = FeedResponseDto.builder()
-              .writer(feed.getMember().getNickname())
-              .writeDate(feed.getWriteDate())
-              .likeCount(feed.getLikeCount())
-              .commentCount(feed.getCommentCount())
-              .content(feed.getContent())
-              .build();
+        // 전체 피드 조회
+        List<Feed> feeds = feedRepository.findFeedsByLastId(lastId, pageable);
 
-      // 현재 번호의 피드의 댓글 테이블의 레코드가 필요
-      List<FeedComment> allComnets = feedCommentRepository.findAllByFeedId(feedId);
-      for (FeedComment feedComment : allComnets) {
-        FeedCommentDto comment = FeedCommentDto.builder()
-                .writer(feedComment.getMember().getNickname())
-                .writeDate(feedComment.getWriteDate())
-                .content(feedComment.getContent())
-                .build();
-        commentDtos.add(comment);
-      }
-
-      responseDto.setComments(commentDtos);
-
-
-      // 이미지 테이블
-      List<FeedImage> feedImages = feedImageRepository.findAllByFeedId(feedId);
-      String[] imageSaveName = new String[feedImages.size()];
-      int index = 0; // 배열 인덱스
-
-      for (FeedImage feedImage : feedImages) {
-        imageSaveName[index++] = feedImage.getImageSaveName(); // 각 인덱스에 값 저장
-      }
-
-      //이제 이걸 dto에 담자.
-      responseDto.setImageSaveName(imageSaveName);
-
-      feedResponseDtos.add(responseDto);
+        // 공통 변환 로직 호출
+        return convertFeedToDto(feeds);
     }
 
+    @Override
+    public List<FeedResponseDto> getByCategories(Long categoryId, Long lastId) {
+        Pageable pageable = PageRequest.of(0, 15, Sort.by("id").ascending());
 
-    return feedResponseDtos;
-  }
+        // 카테고리별 피드 조회
+        List<Feed> feeds = feedRepository.findFeedsByCategoryIdAndLastId(categoryId, lastId, pageable);
 
-  @Override
-  public List<FeedResponseDto> getByCategories(Long categoryId, Long lastId) {
-    Pageable pageable = PageRequest.of(0, 15, Sort.by("id").ascending());
-    List<Feed> feeds = feedRepository.findAllByCategoryId(categoryId);
-
-    List<FeedResponseDto> feedResponseDtos = new ArrayList<>();
-    List<FeedCommentDto> commentDtos = new ArrayList<>();
-// 여기서 feed하나씩 꺼내서 그 번호로 다른 테이블에 접근한다.
-    for (Feed feed : feeds) {
-      Long feedId = feed.getId(); // feedId
-      FeedResponseDto responseDto = FeedResponseDto.builder()
-              .writer(feed.getMember().getNickname())
-              .writeDate(feed.getWriteDate())
-              .likeCount(feed.getLikeCount())
-              .commentCount(feed.getCommentCount())
-              .content(feed.getContent())
-              .build();
-
-      // 현재 번호의 피드의 댓글 테이블의 레코드가 필요
-      List<FeedComment> allComnets = feedCommentRepository.findAllByFeedId(feedId);
-      for (FeedComment feedComment : allComnets) {
-        FeedCommentDto comment = FeedCommentDto.builder()
-                .writer(feedComment.getMember().getNickname())
-                .writeDate(feedComment.getWriteDate())
-                .content(feedComment.getContent())
-                .build();
-        commentDtos.add(comment);
-      }
-
-      responseDto.setComments(commentDtos);
-
-
-      // 이미지 테이블
-      List<FeedImage> feedImages = feedImageRepository.findAllByFeedId(feedId);
-      String[] imageSaveName = new String[feedImages.size()];
-      int index = 0; // 배열 인덱스
-
-      for (FeedImage feedImage : feedImages) {
-        imageSaveName[index++] = feedImage.getImageSaveName(); // 각 인덱스에 값 저장
-      }
-
-      //이제 이걸 dto에 담자.
-      responseDto.setImageSaveName(imageSaveName);
-
-      feedResponseDtos.add(responseDto);
+        // 공통 변환 로직 호출
+        return convertFeedToDto(feeds);
     }
 
+    /**
+     * Feed 엔티티 리스트를 FeedResponseDto 리스트로 변환하는 공통 메서드
+     *
+     * @param feeds 변환할 피드 엔티티 리스트
+     * @return 변환된 DTO 리스트
+     */
+    private List<FeedResponseDto> convertFeedToDto(List<Feed> feeds) {
+        // 현재 로그인한 사용자 ID (비회원이면 null)
+        Long currentMemberId = getCurrentMemberIdOrNull();
+        return feeds.stream()
+                .map(feed -> {
+                    // 댓글 변환
+                    List<FeedCommentDto> comments = feedCommentRepository.findAllByFeedId(feed.getId())
+                            .stream()
+                            .map(comment -> FeedCommentDto.builder()
+                                    .writer(comment.getMember().getNickname())
+                                    .writeDate(comment.getWriteDate())
+                                    .content(comment.getContent())
+                                    .build())
+                            .toList();
 
-    return feedResponseDtos;
-  }
+                    // 이미지 변환
+                    String[] images = feedImageRepository.findAllByFeedId(feed.getId())
+                            .stream()
+                            .map(FeedImage::getImageSaveName)
+                            .toArray(String[]::new);
+
+                    // 좋아요 여부 확인
+                    Boolean isLiked = false;
+                    if (currentMemberId != null) {
+                        isLiked = feedLikeRepository.existsByFeedIdAndMemberId(
+                                feed.getId(), currentMemberId
+                        );
+                    }
+
+                    // DTO 생성
+                    return FeedResponseDto.builder()
+                            .feedId(feed.getId())
+                            .writer(feed.getMember().getNickname())
+                            .writeDate(feed.getWriteDate())
+                            .likeCount(feed.getLikeCount())
+                            .commentCount(feed.getCommentCount())
+                            .content(feed.getContent())
+                            .comments(comments)
+                            .imageSaveName(images)
+                            .isLiked(isLiked)
+                            .categoryId(feed.getCategory().getId())
+                            .categoryName(feed.getCategory().getCategory())
+                            .build();
+                })
+                .toList();
+    }
+
+    /**
+     * 현재 로그인한 사용자 ID를 반환, 비회면이면 null 반환
+     */
+    private Long getCurrentMemberIdOrNull() {
+        try {
+            return SecurityUtil.getCurrentMemberId();
+        } catch (IllegalStateException e) {
+            return null;
+        }
+    }
 }

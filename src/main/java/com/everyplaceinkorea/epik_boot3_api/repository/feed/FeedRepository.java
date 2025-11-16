@@ -15,4 +15,13 @@ public interface FeedRepository extends JpaRepository<Feed, Long> {
   List<Feed> findFeedsByLastId(@Param("lastId") Long lastId, Pageable pageable);
 
   List<Feed> findAllByCategoryId(Long categoryId);
+
+  @Query("SELECT f from Feed f WHERE f.category.id = :categoryId " +
+        "AND (:lastId IS NULL OR f.id > :lastId) " +
+        "ORDER BY f.id ASC")
+  List<Feed> findFeedsByCategoryIdAndLastId(
+          @Param("categoryId") Long categoryId,
+          @Param("lastId") Long lastId,
+          Pageable pageable
+  );
 }
