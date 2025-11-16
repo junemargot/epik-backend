@@ -42,7 +42,7 @@ public class DashboardService {
         
         ContentCounts contentCounts = getTotalContentCounts();
         long ongoingContents = getOngoingContentCounts(today);
-        Map<String, Long> onGoingContentsByType = getOngoingContentsByType(today);
+        Map<String, Long> ongoingContentsByType = getOngoingContentsByType(today);
         long todayContents = getTodayContentCounts();
         Map<String, Long> todayContentsByType = getTodayContentsByType();
         List<RegionStatsDto> regionStats = getRegionStats();
@@ -55,7 +55,7 @@ public class DashboardService {
         return DashboardStatsDto.builder()
                 .totalContents(contentCounts.total)
                 .ongoingContents(ongoingContents)
-                .ongoingContentsByType(onGoingContentsByType)
+                .ongoingContentsByType(ongoingContentsByType)
                 .todayContents(todayContents)
                 .todayContentsByType(todayContentsByType)
                 .totalConcerts(contentCounts.concerts)
@@ -248,7 +248,7 @@ public class DashboardService {
     /**
      * 장르별 콘텐츠 분포 통계 조회
      * 장르 정보는 Concert, Musical만 가지고 있음 (KOPIS API에서 제공)
-     * Exhibition, Popup은 장르 개념이 없으므로 제회
+     * Exhibition, Popup은 장르 개념이 없으므로 제외
      * @return 장르별 통계 리스트 (카운트 내림차순)
      */
     private List<GenreStatsDto> getGenreStats() {
