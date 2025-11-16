@@ -10,6 +10,7 @@ import com.everyplaceinkorea.epik_boot3_api.repository.musical.MusicalRepository
 import com.everyplaceinkorea.epik_boot3_api.repository.popup.PopupRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +29,7 @@ public class DashboardService {
     private final MusicalRepository musicalRepository;
     private final ExhibitionRepository exhibitionRepository;
     private final PopupRepository popupRepository;
+    private final MessageSource messageSource;
 
     /**
      * 대시보드 통계 데이터를 조회하고 DTO로 반환
@@ -221,7 +223,9 @@ public class DashboardService {
             Long count = (Long) row[1];
             regionMap.merge(regionName, count, Long::sum);
         }
-        
+
+        // TODO: Popup 지역별 통계 기능 보류
+        // 사유: 팝업 콘텐츠 서울 특정 지역 중심임
 //        List<Object[]> popupRegions = popupRepository.countByRegionGrouped(
 //            com.everyplaceinkorea.epik_boot3_api.admin.contents.popup.enums.Status.ACTIVE
 //        );
@@ -262,8 +266,12 @@ public class DashboardService {
         
         long musicalCount = musicalRepository.countByStatus(Status.ACTIVE);
         if (musicalCount > 0) {
-            genreMap.put("뮤지컬", musicalCount);
+            String musicalGenre = messageSource.getMessage("genre.musical", null, Locale.KOREAN);
+            log.debug("MessageSource로 조회한 값: {}", musicalGenre);
+//            genreMap.put(messageSource.getMessage("genre.musical", null, Locale.KOREAN), musicalCount);
+            genreMap.put(musicalGenre, musicalCount);
         }
+
         
         List<GenreStatsDto> genreStats = genreMap.entrySet().stream()
             .map(entry -> new GenreStatsDto(entry.getKey(), entry.getValue()))
