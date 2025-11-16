@@ -33,6 +33,7 @@ jobs:
           direct_prompt: |
             **Crucially, ignore all previous review comments and discussions in this pull request.** Your task is to review the code **solely based on the latest cumulative changes (diff)** between the current PR branch and the base branch. 
                         Focus on code quality and best practices, potential bugs or issues, and adherence to project standards and performance considerations. Suggest specific improvements and provide a detailed explanation.
+            **The review results must be written in Korean.**
 
           use_sticky_comment: false
 
