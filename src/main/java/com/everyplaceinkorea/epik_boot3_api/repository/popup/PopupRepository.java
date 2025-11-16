@@ -1,17 +1,15 @@
 package com.everyplaceinkorea.epik_boot3_api.repository.popup;
 
-import com.everyplaceinkorea.epik_boot3_api.entity.musical.Musical;
+import com.everyplaceinkorea.epik_boot3_api.admin.contents.popup.enums.Status;
 import com.everyplaceinkorea.epik_boot3_api.entity.popup.Popup;
-import org.springframework.cglib.core.Local;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface PopupRepository extends JpaRepository<Popup, Long>{
@@ -95,5 +93,19 @@ public interface PopupRepository extends JpaRepository<Popup, Long>{
 
     @Query(value = "SELECT * FROM popup WHERE end_date >= :today ORDER BY RAND() LIMIT 10", nativeQuery = true)
     List<Popup> findActivePopupByRandom(@Param("today") LocalDate today);
+
+    long countByStatus(Status status);
+
+    long countByStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+            Status status, LocalDate startDate, LocalDate endDate);
+
+    long countByWriteDateBetween(LocalDateTime start, LocalDateTime end);
+
+    @Query("SELECT pr.region, COUNT(p) " +
+            "FROM Popup p " +
+            "JOIN p.popupRegion pr " +
+            "WHERE p.status = :status " +
+            "GROUP BY pr.region")
+    List<Object[]> countByRegionGrouped(@Param("status") Status status);
 
 }

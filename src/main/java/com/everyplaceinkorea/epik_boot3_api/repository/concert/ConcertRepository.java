@@ -3,6 +3,7 @@ package com.everyplaceinkorea.epik_boot3_api.repository.concert;
 import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.concert.Concert;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.Musical;
+import com.everyplaceinkorea.epik_boot3_api.entity.musical.Status;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -94,5 +95,92 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
           "AND c.status = 'ACTIVE' " +
           "ORDER BY c.startDate ASC")
   List<Concert> findAllConcertsByGenre(@Param("genreName") String genreName, @Param("today") LocalDate today);
+
+  /**
+   * 활성화된(ACTIVE) 콘서트 수를 카운트
+   *
+   * @param status 콘서트 상태 (ACTIVE, DELETE 등)
+   * @return 해당 상태의 공연 컨텐츠 수
+   *
+   * totalConcerts 계산
+   * DELETE 상태는 제외하고 실제 활설화된 콘서트만 세기 위함
+   */
+  long countByStatus(Status status);
+
+  /**
+   * 오늘 날짜 기준으로 진행 중인 공연 컨텐츠 수 카운트
+   * 조건: status = ACTIVE AND startDate <= today AND endDate >= today
+   *
+   * @param status 공연 상태
+   * @param startDate 비교할 시작 날짜 (today)
+   * @param endDate 비교할 종료 날짜 (today)
+   * @return 현재 진행 중인 공연 컨텐츠 수
+   *
+   * ongoingContents를 계산
+   * 예: startDate=2024-11-01, endDate=2024-12-31이고 today=2024-11-15라면 진행 중
+   */
+  long countByStatusAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+          Status status, LocalDate startDate, LocalDate endDate);
+
+  /**
+   * 특정 시간 범위 내에 등록(wrtieDate)된 공연 수 카운트
+   *
+   * @param start 시작 시간
+   * @param end 종료 시간
+   * @return 오늘 등록된 공연 컨텐츠 수
+   *
+   * todayContents를 계산
+   * writeDate가 오늘인 공연 컨텐츠 수를 세기 위함
+   */
+  long countByWriteDateBetween(LocalDateTime start, LocalDateTime end);
+
+  /**
+   * 지역별로 그룹핑하여 각 지역의 공연 수를 조회
+   * SQL: SELECT region.name, COUNT(*) FROM concert
+   *      JOIN region ON concert.region_id = region.id
+   *      WHERE concert.status = 'ACTIVE'
+   *      GROUP BY region.name
+   *
+   * @param status 공연 상태
+   * @return List<Object[]> 형태로 반환
+   *          - Object[0]: 지역명 (String)
+   *          - Object[1]: 공연 수 (Long)
+   *
+   * regionStats를 계산
+   * 예: [["서울", 150], ["경기", 300]]
+   */
+  @Query("SELECT cr.region, COUNT(*) " +
+          "FROM Concert c " +
+          "JOIN c.region cr " +
+          "WHERE c.status = :status " +
+          "GROUP BY cr.region")
+  List<Object[]> countByRegionGrouped(@Param("status") Status status);
+
+  /**
+   * 장르별로 그룹핑하여 각 장르의 공연 수를 조회
+   * SQL: SELECT kopis_genrenm, COUNT(*) FROM concert
+   *      WHERE status = 'ACTIVE' AND kopis_genrenm IS NOT NULL
+   *      GROUP BY kopis_genrenm
+   *
+   * @param status 공연 상태
+   * @return List<Object[]> 형태로 반환
+   *          - Object[0]: 장르명 (String)
+   *          - Object[1]: 공연 수 (Long)
+   *
+   * genreStats를 계산
+   * NULL 체크 이유: KOPIS API에서 동기화된 콘서트만 장르 정보가 있음
+   * 예: [["클래식", 300], ["대중음악", 500]]
+   */
+  @Query("SELECT c.kopisGenrenm, COUNT(c) " +
+          "FROM Concert c " +
+          "WHERE c.status = :status " +
+          "AND c.kopisGenrenm IS NOT NULL " +
+          "GROUP BY c.kopisGenrenm")
+  List<Object[]> countByGenreGrouped(@Param("status") Status status);
+
+  @Query("SELECT MAX(c.lastSynced) " +
+          "FROM Concert c " +
+          "WHERE c.dataSource = 'KOPIS_API'")
+  Optional<LocalDateTime> findMaxLastSynced();
 
 }
