@@ -21,7 +21,7 @@ public class SecurityUtil {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         // 인증 정보가 없거나 익명 사용자인 경우
-        if(authentication != null || !authentication.isAuthenticated()) {
+        if(authentication == null || !authentication.isAuthenticated()) {
             throw new IllegalStateException("인증되지 않은 사용자입니다.");
         }
 

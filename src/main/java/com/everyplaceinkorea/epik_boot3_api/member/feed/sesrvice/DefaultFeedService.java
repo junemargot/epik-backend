@@ -10,6 +10,7 @@ import com.everyplaceinkorea.epik_boot3_api.repository.feed.FeedCategoryReposito
 import com.everyplaceinkorea.epik_boot3_api.repository.feed.FeedImageRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.feed.FeedLikeRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.feed.FeedRepository;
+import com.everyplaceinkorea.epik_boot3_api.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -43,16 +44,24 @@ public class DefaultFeedService implements FeedService {
     @Transactional
     @Override
     public Long create(FeedCreateDto feedCreateDto, MultipartFile[] files) {
-        Member member = memberRepository.findById(1L).orElseThrow();
-        FeedCategory feedCategory = feedCategoryRepository.findById(1L).orElseThrow();
-        // 피드 저장하기
+        // 현재 로그인한 사용자 ID 가져오기
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+
+        // 실제 로그인한 회원 조회
+        Member member = memberRepository.findById(currentMemberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다."));
+
+        FeedCategory feedCategory = feedCategoryRepository.findById(feedCreateDto.getCategoryId())
+                .orElseThrow(() -> new IllegalArgumentException("카테고리를 찾을 수 없습니다."));
+
+        // 피드 저장
         Feed feed = modelMapper.map(feedCreateDto, Feed.class);
         feed.setMember(member);
         feed.setCategory(feedCategory);
 
         Feed savedFeed = feedRepository.save(feed);
 
-        // 사진이 넘어오니깐 이걸 feed_image테이블에 저장하기
+        // 이미지 저장
         if (files.length > 0) {
             for (MultipartFile file : files) {
                 String originalFilename = file.getOriginalFilename();
@@ -71,7 +80,8 @@ public class DefaultFeedService implements FeedService {
                 try {
                     file.transferTo(new File(fullPath));
                 } catch (IOException e) {
-                    log.info(e.getMessage());
+                    log.error("파일 저장 실패: {}", e.getMessage());
+                    throw new RuntimeException("파일 저장에 실패했습니다.");
                 }
 
                 FeedImage feedImage = FeedImage.builder()
@@ -80,7 +90,6 @@ public class DefaultFeedService implements FeedService {
                         .build();
 
                 feedImageRepository.save(feedImage);
-
             }
         }
 
@@ -90,30 +99,46 @@ public class DefaultFeedService implements FeedService {
     @Transactional
     @Override
     public void delete(Long id) {
-        Feed feed = feedRepository.findById(id).orElseThrow();
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        Feed feed = feedRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("피드를 찾을 수 없습니다."));
+
+        if(!feed.getMember().getId().equals(currentMemberId)) {
+            throw new IllegalStateException("본인이 작성한 피드만 삭제할 수 있습니다.");
+        }
+
         feed.delete();
     }
 
     @Transactional
     @Override
     public void update(Long id, FeedUpdateDto feedUpdateDto) {
-        Feed feed = feedRepository.findById(id).orElseThrow();
-        FeedCategory feedCategory = feedCategoryRepository.findById(feedUpdateDto.getCategoryId()).orElseThrow();
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        Feed feed = feedRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("피드를 찾을 수 없습니다."));
+
+        if(!feed.getMember().getId().equals(currentMemberId)) {
+            throw new IllegalStateException("본인이 작성한 피드만 수정할 수 있습니다.");
+        }
+
+        FeedCategory feedCategory = feedCategoryRepository.findById(feedUpdateDto.getCategoryId())
+                .orElseThrow(() -> new IllegalArgumentException("카테고리를 찾을 수 없습니다."));
+
         feed.update(feedUpdateDto.getContent(), feedCategory);
     }
 
     @Transactional
     @Override
     public void likeFeed(Long postId) {
-        // 피드 번호와 회원번호로 좋아요 테이블에 데이터를 기록하고
-        // 피드의 좋아요 수 up
-        // ** 일단 회원번호는 임의로 부여
-        Member member = memberRepository.findById(1L).orElseThrow(); //
-        Feed feed = feedRepository.findById(postId).orElseThrow(); // 좋아요 증가 및 좋아요 데이터 넣기위해
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        Member member = memberRepository.findById(currentMemberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다."));
 
-        // 좋아요 테이블에 존재하는지 부터 확인하는 쿼리가 필요하네
-        // 그래서 존재하지않는다면(false) 새 레코드 추가
-        boolean isLiked = feedLikeRepository.existsByFeedIdAndMemberId(postId, 1L);
+        Feed feed = feedRepository.findById(postId)
+                .orElseThrow(() -> new IllegalArgumentException("피드를 찾을 수 없습니다."));
+
+        // 실제 로그인한 회원으로 좋아요 확인
+        boolean isLiked = feedLikeRepository.existsByFeedIdAndMemberId(postId, currentMemberId);
         if (!isLiked) {
             FeedLike feedLike = FeedLike.builder()
                     .feedId(feed.getId())
@@ -131,10 +156,11 @@ public class DefaultFeedService implements FeedService {
     @Transactional
     @Override
     public void unLikeFeed(Long postId) {
-        Feed feed = feedRepository.findById(postId).orElseThrow();
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        Feed feed = feedRepository.findById(postId)
+                .orElseThrow(() -> new IllegalArgumentException("피드를 찾을 수 없습니다."));
 
-        // 현재 피드 좋아요 테이블에 존재한다는거니깐
-        FeedLike feedLike = feedLikeRepository.findByFeedIdAndMemberId(postId, 1L);
+        FeedLike feedLike = feedLikeRepository.findByFeedIdAndMemberId(postId, currentMemberId);
         feedLike.changeIsActive();
         feed.likeCountDown();
     }
