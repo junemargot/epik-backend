@@ -1,7 +1,6 @@
 package com.everyplaceinkorea.epik_boot3_api.entity.feed;
 
 
-import com.everyplaceinkorea.epik_boot3_api.admin.contents.popup.enums.Status;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -51,10 +50,23 @@ public class Feed {
   private FeedCategory category;
 
   @Enumerated(EnumType.STRING)
-  private Status status = Status.ACTIVE; // POPUP ENUM에 위치
+  @Column(name = "status")
+  private FeedStatus status = FeedStatus.ACTIVE;
 
   public void delete() {
-    this.status = Status.DELETE;
+    this.status = FeedStatus.DELETED;
+  }
+
+  public void report() {
+    this.status = FeedStatus.REPORTED;
+  }
+
+  public void hide() {
+    this.status = FeedStatus.HIDDEN;
+  }
+
+  public void restore() {
+    this.status = FeedStatus.ACTIVE;
   }
 
   // 피드 수정
