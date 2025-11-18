@@ -26,4 +26,8 @@ public class FeedImage {
         this.imageSaveName = imageSaveName;
         this.feed = feed;
     }
+
+    public String getImagePath() {
+        return "/uploads/images/feed/" + this.imageSaveName;
+    }
 }

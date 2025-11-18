@@ -1,11 +1,16 @@
 package com.everyplaceinkorea.epik_boot3_api.member.feed.sesrvice;
 
 import com.everyplaceinkorea.epik_boot3_api.EditorImage.UploadFolderType;
+import com.everyplaceinkorea.epik_boot3_api.anonymous.feed.dto.FeedCommentDto;
+import com.everyplaceinkorea.epik_boot3_api.anonymous.feed.dto.FeedImageDto;
+import com.everyplaceinkorea.epik_boot3_api.anonymous.feed.dto.FeedResponseDto;
+import com.everyplaceinkorea.epik_boot3_api.entity.comment.FeedComment;
 import com.everyplaceinkorea.epik_boot3_api.entity.feed.*;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.member.feed.dto.FeedCreateDto;
 import com.everyplaceinkorea.epik_boot3_api.member.feed.dto.FeedUpdateDto;
 import com.everyplaceinkorea.epik_boot3_api.repository.Member.MemberRepository;
+import com.everyplaceinkorea.epik_boot3_api.repository.comment.FeedCommentRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.feed.FeedCategoryRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.feed.FeedImageRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.feed.FeedLikeRepository;
@@ -21,7 +26,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +42,7 @@ public class DefaultFeedService implements FeedService {
     private final MemberRepository memberRepository;
     private final FeedLikeRepository feedLikeRepository;
     private final ModelMapper modelMapper;
+    private final FeedCommentRepository feedCommentRepository;
 
     @Value("${file.tmp-dir}")
     private String tmpPath;
@@ -55,7 +64,8 @@ public class DefaultFeedService implements FeedService {
                 .orElseThrow(() -> new IllegalArgumentException("카테고리를 찾을 수 없습니다."));
 
         // 피드 저장
-        Feed feed = modelMapper.map(feedCreateDto, Feed.class);
+        Feed feed = new Feed();
+        feed.setContent(feedCreateDto.getContent());
         feed.setMember(member);
         feed.setCategory(feedCategory);
 
@@ -147,7 +157,7 @@ public class DefaultFeedService implements FeedService {
             feedLikeRepository.save(feedLike);
             feed.likeCountUp();
         } else {
-            FeedLike feedLike = feedLikeRepository.findByFeedIdAndMemberId(postId, 1L);
+            FeedLike feedLike = feedLikeRepository.findByFeedIdAndMemberId(postId, currentMemberId);
             feedLike.changeIsActive();
             feed.likeCountUp();
         }
@@ -163,5 +173,107 @@ public class DefaultFeedService implements FeedService {
         FeedLike feedLike = feedLikeRepository.findByFeedIdAndMemberId(postId, currentMemberId);
         feedLike.changeIsActive();
         feed.likeCountDown();
+    }
+
+    /**
+     * 마이 피드 조회
+     * @param categoryId 카테고리 ID
+     * @return 피드 목록
+     */
+    @Override
+    public List<FeedResponseDto> getMyFeeds(Long categoryId) {
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+
+        List<Feed> feeds;
+        if(categoryId == null) {
+            feeds = feedRepository.findActiveMyFeeds(currentMemberId);
+        } else {
+            feeds = feedRepository.findActiveMyFeedsByCategory(currentMemberId, categoryId);
+        }
+
+        return feeds.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 좋아요한 피드 조회
+     * @param sort 정렬 순서 (latest: 최신순, oldest: 오래된순)
+     * @param categoryId 카테고리 ID
+     * @return 피드 목록
+     */
+    @Override
+    public List<FeedResponseDto> getLikedFeeds(String sort, Long categoryId) {
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        List<Long> likeFeedIds = feedLikeRepository.findFeedIdsByMemberId(currentMemberId);
+        if(likeFeedIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<Feed> feeds = feedRepository.findAllById(likeFeedIds);
+        feeds = feeds.stream()
+                .filter(feed -> feed.getStatus() == FeedStatus.ACTIVE)
+                .collect(Collectors.toList());
+
+        if(categoryId != null) {
+            feeds = feeds.stream()
+                    .filter(feed -> feed.getCategory().getId().equals(categoryId))
+                    .collect(Collectors.toList());
+        }
+
+        if("oldest".equalsIgnoreCase(sort)) {
+            feeds.sort(Comparator.comparing(Feed::getWriteDate));
+        } else {
+            feeds.sort(Comparator.comparing(Feed::getWriteDate).reversed());
+        }
+
+        return feeds.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    private FeedResponseDto convertToDto(Feed feed) {
+        // 현재 로그인한 회원 ID 가져오기
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+
+        // 댓글 조회
+        List<FeedComment> comments = feedCommentRepository.findAllByFeedId(feed.getId());
+        List<FeedCommentDto> commentDtos = comments.stream()
+                .map(comment -> FeedCommentDto.builder()
+                        .commentId(comment.getId())
+                        .writer(comment.getMember().getNickname())
+                        .content(comment.getContent())
+                        .writeDate(comment.getWriteDate())
+                        .build())
+                .collect(Collectors.toList());
+
+        // 이미지 경로 배열 생성
+        List<FeedImageDto> images = feedImageRepository.findAllByFeedId(feed.getId())
+                .stream()
+                .map(image -> FeedImageDto.builder()
+                        .imageSaveName(image.getImageSaveName())
+                        .imagePath(image.getImagePath())
+                        .build())
+                .collect(Collectors.toList());
+
+        // 현재 회원의 좋아요 여부 확인
+        boolean isLiked = feedLikeRepository.existsByFeedIdAndMemberId(
+                feed.getId(),
+                currentMemberId
+        );
+
+        return FeedResponseDto.builder()
+                .feedId(feed.getId())
+                .writer(feed.getMember().getNickname())
+                .writeDate(feed.getWriteDate())
+                .likeCount(feed.getLikeCount())
+                .commentCount(feed.getCommentCount())
+                .content(feed.getContent())
+                .comments(commentDtos)
+                .images(images)
+                .isLiked(isLiked)
+                .categoryId(feed.getCategory().getId())
+                .categoryName(feed.getCategory().getCategory())
+                .build();
     }
 }

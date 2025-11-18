@@ -9,6 +9,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -33,10 +35,10 @@ public class Feed {
   private LocalDateTime updateDate;
 
   @Column(name = "like_count")
-  private Integer likeCount;
+  private Integer likeCount = 0;
 
   @Column(name = "comment_count")
-  private Integer commentCount;
+  private Integer commentCount = 0;
 
   @Column(name = "is_visible")
   private Byte isVisible;
@@ -49,9 +51,28 @@ public class Feed {
   @JoinColumn(name = "category_id")
   private FeedCategory category;
 
+  @OneToMany(mappedBy = "feed", fetch = FetchType.LAZY)
+  private List<FeedImage> images = new ArrayList<>();
+
   @Enumerated(EnumType.STRING)
   @Column(name = "status")
   private FeedStatus status = FeedStatus.ACTIVE;
+
+  @PrePersist
+  public void prePersist() {
+    if (this.likeCount == null) {
+      this.likeCount = 0;
+    }
+    if (this.commentCount == null) {
+      this.commentCount = 0;
+    }
+    if (this.writeDate == null) {
+      this.writeDate = LocalDateTime.now();
+    }
+    if (this.updateDate == null) {
+      this.updateDate = LocalDateTime.now();
+    }
+  }
 
   public void delete() {
     this.status = FeedStatus.DELETED;
@@ -75,7 +96,6 @@ public class Feed {
     this.category = feedCategory;
   }
 
-  // 좋아요 수 증가
   public void likeCountUp() {
     this.likeCount++;
   }

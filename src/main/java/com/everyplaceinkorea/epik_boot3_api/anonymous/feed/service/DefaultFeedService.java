@@ -1,6 +1,7 @@
 package com.everyplaceinkorea.epik_boot3_api.anonymous.feed.service;
 
 import com.everyplaceinkorea.epik_boot3_api.anonymous.feed.dto.FeedCommentDto;
+import com.everyplaceinkorea.epik_boot3_api.anonymous.feed.dto.FeedImageDto;
 import com.everyplaceinkorea.epik_boot3_api.anonymous.feed.dto.FeedResponseDto;
 import com.everyplaceinkorea.epik_boot3_api.entity.comment.FeedComment;
 import com.everyplaceinkorea.epik_boot3_api.entity.feed.Feed;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -72,10 +74,13 @@ public class DefaultFeedService implements FeedService {
                             .toList();
 
                     // 이미지 변환
-                    String[] images = feedImageRepository.findAllByFeedId(feed.getId())
+                    List<FeedImageDto> images = feedImageRepository.findAllByFeedId(feed.getId())
                             .stream()
-                            .map(FeedImage::getImageSaveName)
-                            .toArray(String[]::new);
+                            .map(image -> FeedImageDto.builder()
+                                    .imageSaveName(image.getImageSaveName())
+                                    .imagePath(image.getImagePath())
+                                    .build())
+                            .collect(Collectors.toList());
 
                     // 좋아요 여부 확인
                     Boolean isLiked = false;
@@ -94,7 +99,7 @@ public class DefaultFeedService implements FeedService {
                             .commentCount(feed.getCommentCount())
                             .content(feed.getContent())
                             .comments(comments)
-                            .imageSaveName(images)
+                            .images(images)
                             .isLiked(isLiked)
                             .categoryId(feed.getCategory().getId())
                             .categoryName(feed.getCategory().getCategory())

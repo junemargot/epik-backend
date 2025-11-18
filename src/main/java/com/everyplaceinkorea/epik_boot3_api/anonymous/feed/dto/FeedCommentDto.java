@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class FeedCommentDto {
+  private Long commentId;
   // 댓글 작성자
   private String writer;
   // 댓글 작성일

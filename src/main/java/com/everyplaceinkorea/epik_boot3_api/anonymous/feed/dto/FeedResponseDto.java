@@ -28,7 +28,7 @@ public class FeedResponseDto {
   // 댓글
   private List<FeedCommentDto> comments;
   // 이미지
-  private String[] imageSaveName;
+  private List<FeedImageDto> images;
   // 좋아요 여부
   private Boolean isLiked;
   // 카테고리 정보

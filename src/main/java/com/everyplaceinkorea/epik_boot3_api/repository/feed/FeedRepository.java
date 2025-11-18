@@ -41,4 +41,19 @@ public interface FeedRepository extends JpaRepository<Feed, Long> {
           @Param("lastId") Long lastId,
           Pageable pageable
   );
+
+  // 회원의 피드 조회
+  @Query("SELECT f FROM Feed f WHERE f.member.id = :memberId " +
+        "AND f.status = 'ACTIVE' " +
+        "ORDER BY f.writeDate DESC")
+  List<Feed> findActiveMyFeeds(@Param("memberId") Long memberId);
+
+  @Query("SELECT f FROM Feed f WHERE f.member.id = :memberId " +
+        "AND f.category.id = :categoryId " +
+        "AND f.status = 'ACTIVE' " +
+        "ORDER BY f.writeDate DESC")
+  List<Feed> findActiveMyFeedsByCategory(
+          @Param("memberId") Long memberId,
+          @Param("categoryId") Long categoryId
+  );
 }
