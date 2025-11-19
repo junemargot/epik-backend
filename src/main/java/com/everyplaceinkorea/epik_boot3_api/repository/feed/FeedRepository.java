@@ -10,15 +10,16 @@ import java.util.List;
 
 public interface FeedRepository extends JpaRepository<Feed, Long> {
   List<Feed> findAllByMemberId(Long memberId);
+
   // 전제조회
-  @Query("SELECT f FROM Feed f WHERE (:lastId IS NULL OR f.id > :lastId) ORDER BY f.id ASC")
+  @Query("SELECT f FROM Feed f WHERE (:lastId IS NULL OR f.id < :lastId) ORDER BY f.id DESC")
   List<Feed> findFeedsByLastId(@Param("lastId") Long lastId, Pageable pageable);
 
   List<Feed> findAllByCategoryId(Long categoryId);
 
   @Query("SELECT f from Feed f WHERE f.category.id = :categoryId " +
         "AND (:lastId IS NULL OR f.id > :lastId) " +
-        "ORDER BY f.id ASC")
+        "ORDER BY f.id DESC")
   List<Feed> findFeedsByCategoryIdAndLastId(
           @Param("categoryId") Long categoryId,
           @Param("lastId") Long lastId,
@@ -27,15 +28,15 @@ public interface FeedRepository extends JpaRepository<Feed, Long> {
 
   // 활성 피드만 조회
   @Query("SELECT f FROM Feed f WHERE f.status = 'ACTIVE' " +
-          "AND (:lastId IS NULL OR f.id > :lastId) " +
-          "ORDER BY f.id ASC")
+          "AND (:lastId IS NULL OR f.id < :lastId) " +
+          "ORDER BY f.id DESC")
   List<Feed> findActiveFeedsByLastId(@Param("lastId") Long lastId, Pageable pageable);
 
   // 카테고리별 활성 피드만 조회
   @Query("SELECT f FROM Feed f WHERE f.category.id = :categoryId " +
           "AND f.status = 'ACTIVE' " +
-          "AND (:lastId IS NULL OR f.id > :lastId) " +
-          "ORDER BY f.id ASC")
+          "AND (:lastId IS NULL OR f.id < :lastId) " +
+          "ORDER BY f.id DESC")
   List<Feed> findActiveFeedsByCategoryIdAndLastId(
           @Param("categoryId") Long categoryId,
           @Param("lastId") Long lastId,

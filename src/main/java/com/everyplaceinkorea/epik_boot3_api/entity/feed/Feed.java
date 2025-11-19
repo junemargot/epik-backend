@@ -97,18 +97,34 @@ public class Feed {
   }
 
   public void likeCountUp() {
+    if (this.likeCount == null) {
+      this.likeCount = 0;
+    }
     this.likeCount++;
   }
 
   public void likeCountDown() {
-    this.likeCount--;
+    if(this.likeCount == null) {
+      this.likeCount = 0;
+    }
+    if(this.likeCount > 0) {
+      this.likeCount--;
+    }
   }
 
   public void commentCountUp() {
+    if(this.commentCount == null) {
+      this.commentCount = 0;
+    }
     this.commentCount++;
   }
 
   public void commentCountDown() {
-    this.commentCount--;
+    if(this.commentCount == null) {
+      this.commentCount = 0;
+    }
+    if(this.commentCount > 0) {
+      this.commentCount--;
+    }
   }
 }
