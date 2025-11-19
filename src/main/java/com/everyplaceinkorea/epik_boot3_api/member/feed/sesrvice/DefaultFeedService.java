@@ -147,7 +147,7 @@ public class DefaultFeedService implements FeedService {
         Feed feed = feedRepository.findById(postId)
                 .orElseThrow(() -> new IllegalArgumentException("피드를 찾을 수 없습니다."));
 
-        // 실제 로그인한 회원으로 좋아요 확인
+        // 좋아요 여부 확인
         boolean isLiked = feedLikeRepository.existsByFeedIdAndMemberId(postId, currentMemberId);
         if (!isLiked) {
             FeedLike feedLike = FeedLike.builder()
@@ -158,8 +158,10 @@ public class DefaultFeedService implements FeedService {
             feed.likeCountUp();
         } else {
             FeedLike feedLike = feedLikeRepository.findByFeedIdAndMemberId(postId, currentMemberId);
-            feedLike.changeIsActive();
-            feed.likeCountUp();
+            if(!feedLike.isActive()) {
+                feedLike.changeIsActive();
+                feed.likeCountUp();
+            }
         }
     }
 
@@ -262,12 +264,19 @@ public class DefaultFeedService implements FeedService {
                 currentMemberId
         );
 
+        // 프로필 이미지 경로 생성
+        String profileImagePath = null;
+        if(feed.getMember().getProfileImg() != null) {
+            profileImagePath = "/uploads/images/" + feed.getMember().getProfileImg();
+        }
+
         return FeedResponseDto.builder()
                 .feedId(feed.getId())
                 .writer(feed.getMember().getNickname())
+                .writerProfileImage(profileImagePath)
                 .writeDate(feed.getWriteDate())
-                .likeCount(feed.getLikeCount())
-                .commentCount(feed.getCommentCount())
+                .likeCount(feed.getLikeCount() != null ? feed.getLikeCount() : 0)
+                .commentCount(feed.getCommentCount() != null ? feed.getCommentCount() : 0)
                 .content(feed.getContent())
                 .comments(commentDtos)
                 .images(images)

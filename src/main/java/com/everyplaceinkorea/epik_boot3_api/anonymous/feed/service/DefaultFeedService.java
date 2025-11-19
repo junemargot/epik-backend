@@ -90,10 +90,16 @@ public class DefaultFeedService implements FeedService {
                         );
                     }
 
+                    String profileImagePath = null;
+                    if(feed.getMember().getProfileImg() != null) {
+                        profileImagePath = "/uploads/images/user/" + feed.getMember().getProfileImg();
+                    }
+
                     // DTO 생성
                     return FeedResponseDto.builder()
                             .feedId(feed.getId())
                             .writer(feed.getMember().getNickname())
+                            .writerProfileImage(profileImagePath)
                             .writeDate(feed.getWriteDate())
                             .likeCount(feed.getLikeCount())
                             .commentCount(feed.getCommentCount())
