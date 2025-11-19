@@ -17,6 +17,7 @@ public class FeedResponseDto {
   private Long feedId;
   // 작성자
   private String writer;
+  private String writerProfileImage;
   // 등록일
   private LocalDateTime writeDate;
   // 좋아요 수
