@@ -16,25 +16,23 @@ import com.everyplaceinkorea.epik_boot3_api.repository.Member.MemberRepository;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.*;
 
 
 @RestController
 @RequestMapping("mypage")
+@RequiredArgsConstructor
 public class InfoController {
 
     @Autowired
@@ -42,7 +40,6 @@ public class InfoController {
 
     private AuthenticationManager authenticationManager;
     private JwtUtil jwtUtil;
-    @Autowired
     private MemberRepository memberRepository;
 
     public InfoController(AuthenticationManager authenticationManager, JwtUtil jwtUtil) {
@@ -88,6 +85,41 @@ public class InfoController {
         catch (AuthenticationException e) {
             System.out.println("예외이유 " + e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid info update");
+        }
+    }
+
+    @PostMapping("/profile-image")
+    public ResponseEntity<?> updateProfileImage(
+            @RequestParam("profileImage")MultipartFile profileImage,
+            HttpServletResponse response) {
+
+        try {
+            // 입력 유효성 검사
+            if(profileImage.isEmpty()) {
+                return ResponseEntity.badRequest().body("파일이 비어있습니다.");
+            }
+
+            if(profileImage.getSize() > 5 * 1024 * 1024) {
+                return ResponseEntity.badRequest().body("파일 크기는 5MB 이하여야 합니다.");
+            }
+
+            String contentType = profileImage.getContentType();
+            if(contentType == null || !contentType.startsWith("image/")) {
+                return ResponseEntity.badRequest().body("이미지 파일만 업로드 가능합니다.");
+            }
+
+            Map<String, Object> result = infoService.updateProfileImageWithToken(profileImage, response);
+
+            return ResponseEntity.ok(result);
+
+        } catch(IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch(IOException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("파일 저장 중 오류가 발생했습니다.");
+        } catch(Exception e) {
+            System.err.println("프로필 이미지 업로드 오류: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("프로필 이미지 업로드 중 오류가 발생헀습니다.");
         }
     }
 
