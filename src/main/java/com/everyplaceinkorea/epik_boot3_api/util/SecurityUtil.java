@@ -1,6 +1,8 @@
 package com.everyplaceinkorea.epik_boot3_api.util;
 
 import com.everyplaceinkorea.epik_boot3_api.auth.entity.EpikUserDetails;
+import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
+import com.everyplaceinkorea.epik_boot3_api.repository.Member.MemberRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -39,6 +41,20 @@ public class SecurityUtil {
         }
 
         throw new IllegalStateException("사용자 정보를 찾을 수 없습니다.");
+    }
+
+    /**
+     * 현재 로그인한 사용자의 Member 엔티티를 반환
+     *
+     * @param memberRepository MemberRepository 빈
+     * @return Member 엔티티
+     * @throws IllegalArgumentException 인증되지 않은 경우
+     */
+    public static Member getCurrentMember(MemberRepository memberRepository) {
+        Long memberId = getCurrentMemberId();
+
+        return memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
     }
 
     /**

@@ -20,12 +20,18 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.*;
 
 @Slf4j
 @Service
 @Transactional
 public class DefaultInfoService implements InfoService {
+
+    private static final Set<String> ALLOWED_EXTENSIONS =
+            Set.of(".jpg", ".jpeg", ".png", ".gif", ".webp");
+
+    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
     private final MemberRepository memberRepository;
     private JwtUtil jwtUtil;
@@ -90,18 +96,15 @@ public class DefaultInfoService implements InfoService {
     @Override
     public Map<String, Object> updateProfileImageWithToken(MultipartFile profileImage, HttpServletResponse response) throws IOException {
 
-        // 1. 현재 로그인한 사용자 확인
-        Long currentMemberId = SecurityUtil.getCurrentMemberId();
-        log.info("프로필 이미지 및 토큰 업데이트 시작 - 인증된 회원 ID: {}", currentMemberId);
+        // 1. 현재 로그인한 사용자의 Member 엔티티 조회
+        Member member = SecurityUtil.getCurrentMember(memberRepository);
+        log.info("프로필 이미지 및 토큰 업데이트 시작 - 인증된 회원 ID: {}", member.getId());
 
         // 2. 파일 저장
-        String savedFilePath = saveProfileImage(currentMemberId, profileImage);
+        String savedFilePath = saveProfileImage(member.getId(), profileImage);
 
         // 3. 업데이트된 회원 정보 조회
-        Member member = memberRepository.findById(currentMemberId)
-                .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다."));
         member.setProfileImg(savedFilePath);
-        memberRepository.save(member);
 
         // 4. UserDetails 생성
         EpikUserDetails userDetails = createUserDetails(member);
@@ -116,7 +119,7 @@ public class DefaultInfoService implements InfoService {
         Map<String, Object> result = new HashMap<>();
         result.put("token", newToken);
         result.put("profileImg", savedFilePath);
-        result.put("memberId", currentMemberId);
+        result.put("memberId", member.getId());
 
         log.info("프로필 이미지 및 토큰 업데이트 완료");
         return result;
@@ -126,6 +129,8 @@ public class DefaultInfoService implements InfoService {
      * 프로필 이미지 파일을 서버에 저장
      */
     private String saveProfileImage(Long memberId, MultipartFile profileImage) throws IOException {
+        validateProfileImage(profileImage);
+
         // 업로드 디렉토리 설정
         String uploadDir = System.getProperty("user.dir") + "/uploads/images/user/";
         File directory = new File(uploadDir);
@@ -136,13 +141,11 @@ public class DefaultInfoService implements InfoService {
             }
         }
 
-        // 파일명 생성 (중복 방지)
-        String originalFilename = profileImage.getOriginalFilename();
-        String extension = "";
-        if (originalFilename != null && originalFilename.contains(".")) {
-            extension = originalFilename.substring(originalFilename.lastIndexOf("."));
-        }
+        // 안전한 확장자 추출 (경로 조작 방지)
+        String extension = extractSafeExtension(profileImage.getOriginalFilename());
 
+
+        // 새 파일명 생성 (원본 파일명 미사용)
         String newFilename = String.format("profile_%d_%d%s",
                 memberId,
                 System.currentTimeMillis(),
@@ -157,6 +160,58 @@ public class DefaultInfoService implements InfoService {
 
         // 상대 경로 반환 (DB에 저장될 값)
         return "uploads/images/user/" + newFilename;
+    }
+
+    private void validateProfileImage(MultipartFile file) {
+        // 1. null 체크
+        if(file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("파일이 비어있습니다.");
+        }
+
+        // 2. 파일 크기 체크
+        if(file.getSize() > MAX_FILE_SIZE) {
+            throw new IllegalArgumentException("파일 크기는 5MB를 초과할 수 없습니다.");
+        }
+
+        // 3. 확장자 체크 (대소문자 무시)
+        String originalFilename = file.getOriginalFilename();
+        if(originalFilename == null) {
+            throw new IllegalArgumentException("파일명이 없습니다.");
+        }
+
+        String extension = originalFilename.substring(
+                originalFilename.lastIndexOf(".")).toLowerCase();
+
+        if(!ALLOWED_EXTENSIONS.contains(extension)) {
+            throw new IllegalArgumentException(
+                    "허용되지 않는 파일 형식입니다. (jpg, jpeg, png, gif, webp만 가능)"
+            );
+        }
+
+        // 4. MIME 타입 체크 (이중 검증)
+        String contentType = file.getContentType();
+        if(contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("이미지 파일만 업로드 가능합니다.");
+        }
+    }
+
+    /**
+     * 경로 조작 공격을 방지하고 안전한 파일명을 추출
+     */
+    private String extractSafeExtension(String originalFilename) {
+        if(originalFilename == null || originalFilename.isEmpty()) {
+            throw new IllegalArgumentException("파일명이 비어있습니다.");
+        }
+
+        String sanitizedFilename = Paths.get(originalFilename)
+                .getFileName().toString();
+
+        int lastDotIndex = sanitizedFilename.lastIndexOf(".");
+        if(lastDotIndex == -1) {
+            throw new IllegalArgumentException("파일 확장자가 없습니다.");
+        }
+
+        return sanitizedFilename.substring(lastDotIndex).toLowerCase();
     }
 
     /**
