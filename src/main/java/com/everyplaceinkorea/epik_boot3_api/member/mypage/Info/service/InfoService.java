@@ -24,7 +24,9 @@ public interface InfoService {
      */
     ProfilePicResponseDto updateProfilePic(ProfilePicRequestDto profilePicRequestDto, MultipartFile profileImage) throws IOException;
 
-    UserDetails updateInfo(InfoRequestDto infoRequestDto);
+//    UserDetails updateInfo(InfoRequestDto infoRequestDto);
+
+    Map<String, Object> updateInfoWithToken(InfoRequestDto infoRequestDto, HttpServletResponse response);
 
     /**
      * 프로필 이미지 업데이트 및 새 토큰 발급

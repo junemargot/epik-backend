@@ -54,33 +54,72 @@ public class DefaultInfoService implements InfoService {
         this.jwtUtil = jwtUtil;
     }
 
-    @Override
-    public UserDetails updateInfo(InfoRequestDto infoRequestDto) {
+//    @Override
+//    public UserDetails updateInfo(InfoRequestDto infoRequestDto) {
+//
+//        // 1. 현재 로그인한 사용자 확인
+//        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+//
+//        // 2. 권한 검증: 요청한 ID와 로그인한 사용자 ID가 일치하는지 확인
+//        if (!currentMemberId.equals(infoRequestDto.getId())) {
+//            throw new IllegalStateException("본인의 정보만 수정할 수 있습니다.");
+//        }
+//
+//        log.info("회원 정보 업데이트 - ID: {}", infoRequestDto.getId());
+//
+//        // 3. 회원 조회
+//        Member existingMember = memberRepository.findById(currentMemberId)
+//                .orElseThrow(() -> new IllegalArgumentException("업데이트할 멤버 없음: " + currentMemberId));
+//
+//        // 4. 정보 업데이트
+//        existingMember.setEmail(infoRequestDto.getEmail());
+//        existingMember.setNickname(infoRequestDto.getNickname());
+//        memberRepository.save(existingMember);
+//
+//        log.info("회원 정보 업데이트 완료 - role: {}", existingMember.getRole());
+//
+//        // 5. UserDetails 생성 및 반환
+//        return createUserDetails(existingMember);
+//    }
 
+    @Override
+    public Map<String, Object> updateInfoWithToken(InfoRequestDto infoRequestDto, HttpServletResponse response) {
         // 1. 현재 로그인한 사용자 확인
         Long currentMemberId = SecurityUtil.getCurrentMemberId();
 
-        // 2. 권한 검증: 요청한 ID와 로그인한 사용자 ID가 일치하는지 확인
-        if (!currentMemberId.equals(infoRequestDto.getId())) {
+        // 2. 권한 검증
+        if(!currentMemberId.equals(infoRequestDto.getId())) {
             throw new IllegalStateException("본인의 정보만 수정할 수 있습니다.");
         }
 
         log.info("회원 정보 업데이트 - ID: {}", infoRequestDto.getId());
 
-        // 3. 회원 조회
-        Member existingMember = memberRepository.findById(currentMemberId)
+        // 3. 회원 조회 및 업데이트
+        Member member = memberRepository.findById(currentMemberId)
                 .orElseThrow(() -> new IllegalArgumentException("업데이트할 멤버 없음: " + currentMemberId));
 
-        // 4. 정보 업데이트
-        existingMember.setEmail(infoRequestDto.getEmail());
-        existingMember.setNickname(infoRequestDto.getNickname());
-        memberRepository.save(existingMember);
+        member.setEmail(infoRequestDto.getEmail());
+        member.setNickname(infoRequestDto.getNickname());
+        memberRepository.save(member);
 
-        log.info("회원 정보 업데이트 완료 - role: {}", existingMember.getRole());
+        log.info("회원 정보 업데이트 완료 - role: {}", member.getRole());
 
-        // 5. UserDetails 생성 및 반환
-        return createUserDetails(existingMember);
+        // 4. UserDetails 생성
+        EpikUserDetails userDetails = createUserDetails(member);
+
+        // 5. 새 JWT 토큰 생성
+        String newToken = jwtUtil.generateToken(userDetails);
+        setTokenCookie(response, newToken);
+
+        // 6. 응답 데이터 구성
+        Map<String, Object> result = new HashMap<>();
+        result.put("token", newToken);
+        result.put("member", member.getId());
+
+        log.info("회원 정보 및 토큰 업데이트 완료");
+        return result;
     }
+
 
     @Override
     public ProfilePicResponseDto updateProfilePic(ProfilePicRequestDto profilePicRequestDto, MultipartFile profileImage) throws IOException {

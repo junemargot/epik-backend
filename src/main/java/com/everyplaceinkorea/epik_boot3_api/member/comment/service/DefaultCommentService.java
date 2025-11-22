@@ -35,7 +35,8 @@ public class DefaultCommentService implements CommentService{
         Member member = memberRepository.findById(currentMemberId)
                 .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다."));
 
-        Feed feed = feedRepository.findById(feedId).orElseThrow();
+        Feed feed = feedRepository.findById(feedId)
+                .orElseThrow(() -> new IllegalArgumentException("피드를 찾을 수 없습니다."));
 
         FeedComment feedComment = FeedComment.builder()
                 .content(commentCreateDto.getContent())
@@ -43,9 +44,11 @@ public class DefaultCommentService implements CommentService{
                 .member(member)
                 .build();
 
-        feedCommentRepository.save(feedComment);
+        FeedComment savedComment = feedCommentRepository.save(feedComment);
 
-        return null;
+        feedRepository.incrementCommentCount(feedId);
+
+        return savedComment.getId();
     }
 
     // 피드 댓글 전체 조회
@@ -90,9 +93,8 @@ public class DefaultCommentService implements CommentService{
             throw new IllegalStateException("본인의 댓글만 삭제할 수 있습니다.");
         }
 
-        // 댓글 수 감소
-        Feed feed = feedComment.getFeed();
-        feed.commentCountDown();
+        Long feedId = feedComment.getFeed().getId();
+        feedRepository.decrementCommentCount(feedId);
 
         feedComment.delete();
     }
