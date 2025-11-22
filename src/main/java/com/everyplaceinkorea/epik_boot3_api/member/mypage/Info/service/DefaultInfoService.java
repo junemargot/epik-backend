@@ -12,6 +12,7 @@ import com.everyplaceinkorea.epik_boot3_api.util.SecurityUtil;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -31,7 +32,19 @@ public class DefaultInfoService implements InfoService {
     private static final Set<String> ALLOWED_EXTENSIONS =
             Set.of(".jpg", ".jpeg", ".png", ".gif", ".webp");
 
-    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+    private static final long MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+    @Value("${epik.jwt.cookie.max-age:86400}")
+    private int jwtCookieMaxAge;
+
+    @Value("${epik.jwt.cookie.http-only:true}")
+    private boolean jwtCookieHttpOnly;
+
+    @Value("${epik.jwt.cookie.secure:true}")
+    private boolean jwtCookieSecure;
+
+    @Value("${epik.jwt.cookie.path:/}")
+    private String jwtCookiePath;
 
     private final MemberRepository memberRepository;
     private JwtUtil jwtUtil;
@@ -238,10 +251,10 @@ public class DefaultInfoService implements InfoService {
      */
     private void setTokenCookie(HttpServletResponse response, String token) {
         Cookie cookie = new Cookie("jwt_token", token);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true);
-        cookie.setPath("/");
-        cookie.setMaxAge(60 * 60 * 24); // 1일
+        cookie.setHttpOnly(jwtCookieHttpOnly);
+        cookie.setSecure(jwtCookieSecure);
+        cookie.setPath(jwtCookiePath);
+        cookie.setMaxAge(jwtCookieMaxAge);
         response.addCookie(cookie);
 
         log.debug("JWT 토큰 쿠키 설정 완료");

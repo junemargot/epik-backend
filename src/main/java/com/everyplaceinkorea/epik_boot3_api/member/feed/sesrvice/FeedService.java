@@ -17,11 +17,10 @@ public interface FeedService {
 
     void likeFeed(Long postId);
 
-    void unLikeFeed(Long postId);
-
     // 마이 피드 조회
     List<FeedResponseDto> getMyFeeds(Long categoryId);
 
     // 좋아요한 피드 조회
     List<FeedResponseDto> getLikedFeeds(String sort, Long categoryID);
+
 }

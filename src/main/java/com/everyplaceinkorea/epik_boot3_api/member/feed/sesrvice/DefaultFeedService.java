@@ -150,31 +150,27 @@ public class DefaultFeedService implements FeedService {
         // 좋아요 여부 확인
         boolean isLiked = feedLikeRepository.existsByFeedIdAndMemberId(postId, currentMemberId);
         if (!isLiked) {
+            // 처음 좋아요
             FeedLike feedLike = FeedLike.builder()
                     .feedId(feed.getId())
                     .memberId(member.getId())
                     .build();
             feedLikeRepository.save(feedLike);
-            feed.likeCountUp();
+            feedRepository.incrementLikeCount(postId);
+
         } else {
+            // 이미 존재하는 경우
             FeedLike feedLike = feedLikeRepository.findByFeedIdAndMemberId(postId, currentMemberId);
             if(!feedLike.isActive()) {
+                // 비활성화 -> 활성화
                 feedLike.changeIsActive();
-                feed.likeCountUp();
+                feedRepository.incrementLikeCount(postId);
+            } else {
+                // 활성화 -> 비활성화 (좋아요 취소)
+                feedLike.changeIsActive();
+                feedRepository.decrementLikeCount(postId);
             }
         }
-    }
-
-    @Transactional
-    @Override
-    public void unLikeFeed(Long postId) {
-        Long currentMemberId = SecurityUtil.getCurrentMemberId();
-        Feed feed = feedRepository.findById(postId)
-                .orElseThrow(() -> new IllegalArgumentException("피드를 찾을 수 없습니다."));
-
-        FeedLike feedLike = feedLikeRepository.findByFeedIdAndMemberId(postId, currentMemberId);
-        feedLike.changeIsActive();
-        feed.likeCountDown();
     }
 
     /**
