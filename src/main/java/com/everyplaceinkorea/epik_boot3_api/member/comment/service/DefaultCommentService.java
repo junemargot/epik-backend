@@ -9,6 +9,7 @@ import com.everyplaceinkorea.epik_boot3_api.member.comment.dto.CommentUpdateDto;
 import com.everyplaceinkorea.epik_boot3_api.repository.Member.MemberRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.comment.FeedCommentRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.feed.FeedRepository;
+import com.everyplaceinkorea.epik_boot3_api.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -30,10 +31,12 @@ public class DefaultCommentService implements CommentService{
     @Transactional
     @Override
     public Long create(Long feedId, Long memberId, CommentCreateDto commentCreateDto) {
-        // 댓글에는 어느 회원이 어느 피드에 댓글을 어떠한 댓글을 작성했는지가 기록이 되어야함
-        //일단 어느 회원
-        Member member = memberRepository.findById(memberId).orElseThrow();
-        Feed feed = feedRepository.findById(feedId).orElseThrow();
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        Member member = memberRepository.findById(currentMemberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원을 찾을 수 없습니다."));
+
+        Feed feed = feedRepository.findById(feedId)
+                .orElseThrow(() -> new IllegalArgumentException("피드를 찾을 수 없습니다."));
 
         FeedComment feedComment = FeedComment.builder()
                 .content(commentCreateDto.getContent())
@@ -41,18 +44,17 @@ public class DefaultCommentService implements CommentService{
                 .member(member)
                 .build();
 
-        feedCommentRepository.save(feedComment);
+        FeedComment savedComment = feedCommentRepository.save(feedComment);
 
-        return null;
+        feedRepository.incrementCommentCount(feedId);
+
+        return savedComment.getId();
     }
 
     // 피드 댓글 전체 조회
     @Override
     public List<CommentResponseDto> getList(Long feedId) {
-        // 댓글 테이블에서 피드번호에 해당하는 모든 댓글 조회
         List<FeedComment> allByFeedId = feedCommentRepository.findAllByFeedId(feedId);
-
-        // 여기 뽑아온걸
         List<CommentResponseDto> commentDtos = allByFeedId
                 .stream()
                 .map(comment -> {
@@ -70,15 +72,30 @@ public class DefaultCommentService implements CommentService{
     @Transactional
     @Override
     public void update(Long commentId, CommentUpdateDto updateDto) {
-        // 댓글 수정
-        FeedComment feedComment = feedCommentRepository.findById(commentId).orElseThrow();
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        FeedComment feedComment = feedCommentRepository.findById(commentId)
+                .orElseThrow(() -> new IllegalArgumentException("댓글을 찾을 수 없습니다."));
+
+        if(!feedComment.getMember().getId().equals(currentMemberId)) {
+            throw new IllegalStateException("본인의 댓글만 수정할 수 있습니다.");
+        }
         feedComment.update(updateDto);
     }
 
     @Transactional
     @Override
     public void delete(Long commentId) {
-        FeedComment feedComment = feedCommentRepository.findById(commentId).orElseThrow();
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+        FeedComment feedComment = feedCommentRepository.findById(commentId)
+                .orElseThrow(() -> new IllegalArgumentException("댓글을 찾을 수 없습니다."));
+
+        if(!feedComment.getMember().getId().equals(currentMemberId)) {
+            throw new IllegalStateException("본인의 댓글만 삭제할 수 있습니다.");
+        }
+
+        Long feedId = feedComment.getFeed().getId();
+        feedRepository.decrementCommentCount(feedId);
+
         feedComment.delete();
     }
 }

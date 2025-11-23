@@ -57,13 +57,15 @@ public class SecurityConfig {
                     .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             // 요청 권한 설정
             .authorizeHttpRequests(authorize -> authorize
-                    .requestMatchers("/api/v1/auth/**", "/login/**", "/images/**", "/uploads/**", "/api/v1/uploads/**",
+                    .requestMatchers("/auth/**", "/login/**", "/images/**", "/uploads/**", "/api/v1/uploads/**",
                                     "/oauth2/**", "/oauth2/authorization/**", "/login/oauth2/code/**",
                                     "/popup/random", "/concert/random", "/musical/random", "/exhibition/random",
                                     "/admin/kopis/**", "/admin/dashboard/**").permitAll() // KOPIS 관리 API 허용 추가
                     .requestMatchers("/api/v1/admin/**").hasAuthority("ROLE_ADMIN")
+                    .requestMatchers(HttpMethod.GET, "/feed/**").permitAll()  // 피드 조회는 비로그인 허용
+                    .requestMatchers(HttpMethod.POST, "/feed/**").authenticated()  // 피드 작성, 좋아요는 인증 필요
                     .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                    .anyRequest().permitAll()
+                    .anyRequest().authenticated()
             )
 
             .exceptionHandling(exception -> exception

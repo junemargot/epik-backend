@@ -1,8 +1,8 @@
 package com.everyplaceinkorea.epik_boot3_api.entity.comment;
 
 import com.everyplaceinkorea.epik_boot3_api.entity.feed.Feed;
+import com.everyplaceinkorea.epik_boot3_api.entity.feed.FeedStatus;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
-import com.everyplaceinkorea.epik_boot3_api.entity.musical.Status;
 import com.everyplaceinkorea.epik_boot3_api.member.comment.dto.CommentUpdateDto;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -41,7 +41,7 @@ public class FeedComment {
     private Member member;
 
     @Enumerated(EnumType.STRING)
-    private Status status = Status.ACTIVE;
+    private FeedStatus status = FeedStatus.ACTIVE;
 
     @Builder
     public FeedComment(String content, Feed feed, Member member) {
@@ -55,6 +55,14 @@ public class FeedComment {
     }
 
     public void delete() {
-        this.status = Status.DELETE;
+        this.status = FeedStatus.DELETED;
+    }
+
+    public void report() {
+        this.status = FeedStatus.REPORTED;
+    }
+
+    public void hide() {
+        this.status = FeedStatus.HIDDEN;
     }
 }

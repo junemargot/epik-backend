@@ -1,5 +1,6 @@
 package com.everyplaceinkorea.epik_boot3_api.member.feed.controller;
 
+import com.everyplaceinkorea.epik_boot3_api.anonymous.feed.dto.FeedResponseDto;
 import com.everyplaceinkorea.epik_boot3_api.member.feed.dto.FeedCreateDto;
 import com.everyplaceinkorea.epik_boot3_api.member.feed.dto.FeedUpdateDto;
 import com.everyplaceinkorea.epik_boot3_api.member.feed.sesrvice.FeedService;
@@ -9,6 +10,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 /**
  * 회원 피드 요청 api
@@ -24,8 +27,10 @@ public class FeedController {
 
     // 피드 등록
     @PostMapping
-    public ResponseEntity<Long> create(@RequestPart("request") FeedCreateDto feedCreateDto,
-                                       @RequestPart MultipartFile[] files) {
+    public ResponseEntity<Long> create(
+            @RequestPart("request") FeedCreateDto feedCreateDto,
+            @RequestPart MultipartFile[] files)
+    {
         log.info("Create feed: {}", feedCreateDto.toString());
         log.info("File size: {}", files.length);
         // 파일 리스트 순회
@@ -62,12 +67,33 @@ public class FeedController {
         return ResponseEntity.noContent().build();
     }
 
-    // 좋아요 취소
-    @DeleteMapping("{feedId}/like")
-    public ResponseEntity<Void> unlike(@PathVariable Long feedId) {
-        feedService.unLikeFeed(feedId);
-        return ResponseEntity.noContent().build();
+    /**
+     * 마이 피드 조회
+     * @param categoryId 카테고리 ID (optional)
+     * @return 피드 목록
+     */
+    @GetMapping("/my")
+    public ResponseEntity<List<FeedResponseDto>> getMyFeeds(
+            @RequestParam(required = false) Long categoryId
+    ) {
+        log.info("마이 피드 조회 - categoryId: {}", categoryId);
+        return ResponseEntity.status(HttpStatus.OK)
+                .body(feedService.getMyFeeds(categoryId));
     }
 
-    // 마이 피드 조회
+    /**
+     * 좋아요한 피드 조회
+     * @param sort 정렬 순서 (latest/oldest, 기본값: latest)
+     * @param categoryId 카테고리 ID (optional)
+     * @return 피드 목록
+     */
+    @GetMapping("/liked")
+    public ResponseEntity<List<FeedResponseDto>> getLikedFeeds(
+            @RequestParam(defaultValue = "latest") String sort,
+            @RequestParam(required = false) Long categoryId
+    ) {
+        log.info("좋아요한 피드 조회 - sort: {}, categoryId: {}", sort, categoryId);
+        return ResponseEntity.status(HttpStatus.OK)
+                .body(feedService.getLikedFeeds(sort, categoryId));
+    }
 }

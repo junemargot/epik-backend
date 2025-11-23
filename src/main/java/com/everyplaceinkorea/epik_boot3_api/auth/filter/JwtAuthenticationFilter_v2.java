@@ -2,6 +2,10 @@ package com.everyplaceinkorea.epik_boot3_api.auth.filter;
 
 import com.everyplaceinkorea.epik_boot3_api.auth.entity.EpikUserDetails;
 import com.everyplaceinkorea.epik_boot3_api.auth.util.JwtUtil;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.MalformedJwtException;
+import io.jsonwebtoken.UnsupportedJwtException;
+import io.jsonwebtoken.security.SignatureException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -34,7 +38,12 @@ public class JwtAuthenticationFilter_v2 extends OncePerRequestFilter {
         // 쿠키에서 JWT 토큰 추출
         String token = extractTokenFromCookie(request);
 
-        // 토큰이 존재하고, 일단 null이 아니면 검증 시도
+        // 쿠키에 없으면 Authorization 헤더 확인
+        if(token == null || token.isEmpty()) {
+            token = extractTokenFromHeader(request);
+        }
+
+        // 토큰이 존재하지 않으면 다음 필터로
         if (token == null || token.isEmpty()) {
             filterChain.doFilter(request, response);
             return;
@@ -68,9 +77,35 @@ public class JwtAuthenticationFilter_v2 extends OncePerRequestFilter {
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
+        } catch (ExpiredJwtException e) {
+            // 토큰 만료
+            log.warn("만료된 JWT 토큰: {}", e.getMessage());
+            response.setHeader("X-Auth-Error", "TOKEN_EXPIRED");
+
+        } catch (SignatureException e) {
+            // 서명 검증 실패 (위조된 토큰)
+            log.warn("유효하지 않은 JWT 서명: {}", e.getMessage());
+            response.setHeader("X-Auth-Error", "INVALID_SIGNATURE");
+
+        } catch (MalformedJwtException e) {
+            // 잘못된 토큰 형식
+            log.warn("잘못된 형식의 JWT 토큰: {}", e.getMessage());
+            response.setHeader("X-Auth-Error", "MALFORMED_TOKEN");
+
+        } catch (UnsupportedJwtException e) {
+            // 지원하지 않는 토큰
+            log.warn("지원하지 않는 JWT 토큰: {}", e.getMessage());
+            response.setHeader("X-Auth-Error", "UNSUPPORTED_TOKEN");
+
+        } catch (IllegalArgumentException e) {
+            // 빈 토큰
+            log.warn("JWT 토큰이 비어있습니다: {}", e.getMessage());
+            response.setHeader("X-Auth-Error", "EMPTY_TOKEN");
+
         } catch (Exception e) {
-            log.error("JWT 토큰 검증 중 오류 발생: {}", e.getMessage());
-            // 검증에 실패하면 그냥 인증 없이 넘어감 Anonymous 상태로 남음
+            // 그 외 예상치 못한 오류
+            log.error("예상치 못한 JWT 검증 오류: {}", e.getMessage(), e);
+            response.setHeader("X-Auth-Error", "UNEXPECTED_ERROR");
         }
 
         filterChain.doFilter(request, response);
@@ -91,6 +126,14 @@ public class JwtAuthenticationFilter_v2 extends OncePerRequestFilter {
             }
         }
 
+        return null;
+    }
+
+    private String extractTokenFromHeader(HttpServletRequest request){
+        String bearerToken = request.getHeader("Authorization");
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
         return null;
     }
 }

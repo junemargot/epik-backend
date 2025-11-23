@@ -84,8 +84,11 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     if(memberOptional.isPresent()) {
       Member member = memberOptional.get();
 
-      if(attributes.getProfileImage() != null && !attributes.getProfileImage().equals("basic.png")) {
+      if(attributes.getProfileImage() != null &&
+        !attributes.getProfileImage().isEmpty() &&
+        !attributes.getProfileImage().equals("basic.png")) {
         member.setProfileImg(attributes.getProfileImage());
+        log.info("프로필 이미지 업데이트: {}", attributes.getProfileImage());
       }
 
       return memberRepository.save(member);
@@ -94,7 +97,12 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
       member.setUsername(email);
       member.setEmail(email);
       member.setNickname(attributes.getName());
-      member.setProfileImg(attributes.getProfileImage() != null ? attributes.getProfileImage() : "basic.png");
+      String profileImagePath = "basic.png";
+      if(attributes.getProfileImage() != null && !attributes.getProfileImage().isEmpty()) {
+        profileImagePath = attributes.getProfileImage();
+        log.info("신규 회원 프로필 이미지: {}", profileImagePath);
+      }
+      member.setProfileImg(profileImagePath);
       member.setJoinDate(LocalDate.now());
       member.setType((byte) 1);
       member.setRole("ROLE_MEMBER");

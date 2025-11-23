@@ -1,7 +1,6 @@
 package com.everyplaceinkorea.epik_boot3_api.entity.feed;
 
 
-import com.everyplaceinkorea.epik_boot3_api.admin.contents.popup.enums.Status;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -10,6 +9,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -34,10 +35,10 @@ public class Feed {
   private LocalDateTime updateDate;
 
   @Column(name = "like_count")
-  private Integer likeCount;
+  private Integer likeCount = 0;
 
   @Column(name = "comment_count")
-  private Integer commentCount;
+  private Integer commentCount = 0;
 
   @Column(name = "is_visible")
   private Byte isVisible;
@@ -50,11 +51,43 @@ public class Feed {
   @JoinColumn(name = "category_id")
   private FeedCategory category;
 
+  @OneToMany(mappedBy = "feed", fetch = FetchType.LAZY)
+  private List<FeedImage> images = new ArrayList<>();
+
   @Enumerated(EnumType.STRING)
-  private Status status = Status.ACTIVE; // POPUP ENUM에 위치
+  @Column(name = "status")
+  private FeedStatus status = FeedStatus.ACTIVE;
+
+  @PrePersist
+  public void prePersist() {
+    if (this.likeCount == null) {
+      this.likeCount = 0;
+    }
+    if (this.commentCount == null) {
+      this.commentCount = 0;
+    }
+    if (this.writeDate == null) {
+      this.writeDate = LocalDateTime.now();
+    }
+    if (this.updateDate == null) {
+      this.updateDate = LocalDateTime.now();
+    }
+  }
 
   public void delete() {
-    this.status = Status.DELETE;
+    this.status = FeedStatus.DELETED;
+  }
+
+  public void report() {
+    this.status = FeedStatus.REPORTED;
+  }
+
+  public void hide() {
+    this.status = FeedStatus.HIDDEN;
+  }
+
+  public void restore() {
+    this.status = FeedStatus.ACTIVE;
   }
 
   // 피드 수정
@@ -63,20 +96,35 @@ public class Feed {
     this.category = feedCategory;
   }
 
-  // 좋아요 수 증가
   public void likeCountUp() {
+    if (this.likeCount == null) {
+      this.likeCount = 0;
+    }
     this.likeCount++;
   }
 
   public void likeCountDown() {
-    this.likeCount--;
+    if(this.likeCount == null) {
+      this.likeCount = 0;
+    }
+    if(this.likeCount > 0) {
+      this.likeCount--;
+    }
   }
 
   public void commentCountUp() {
+    if(this.commentCount == null) {
+      this.commentCount = 0;
+    }
     this.commentCount++;
   }
 
   public void commentCountDown() {
-    this.commentCount--;
+    if(this.commentCount == null) {
+      this.commentCount = 0;
+    }
+    if(this.commentCount > 0) {
+      this.commentCount--;
+    }
   }
 }

@@ -13,8 +13,11 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class FeedResponseDto {
+  // 피드 ID
+  private Long feedId;
   // 작성자
   private String writer;
+  private String writerProfileImage;
   // 등록일
   private LocalDateTime writeDate;
   // 좋아요 수
@@ -26,7 +29,11 @@ public class FeedResponseDto {
   // 댓글
   private List<FeedCommentDto> comments;
   // 이미지
-  private String[] imageSaveName;
-
+  private List<FeedImageDto> images;
+  // 좋아요 여부
+  private Boolean isLiked;
+  // 카테고리 정보
+  private Long categoryId;
+  private String categoryName;
 }
 
