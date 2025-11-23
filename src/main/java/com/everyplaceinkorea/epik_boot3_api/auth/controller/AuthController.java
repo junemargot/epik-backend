@@ -88,12 +88,14 @@ public class AuthController {
             System.out.println("Generated Token: " + token);
 
             // 6. 생성된 토큰을 HttpOnly, Secure 설정이 적용된 쿠키에 저장
-            Cookie cookie = new Cookie("jwt_token", token);
-            cookie.setHttpOnly(true);       // 클라이언트의 JavaScript에서 쿠키 접근 제한
-            cookie.setSecure(true);         // HTTPS 환경에서만 전송
-            cookie.setPath("/");            // 모든 경로에서 유효
-            cookie.setMaxAge(60 * 60 * 24); // 쿠키의 만료 시간: 1일
-            response.addCookie(cookie);
+//            Cookie cookie = new Cookie("jwt_token", token);
+//            cookie.setHttpOnly(true);       // 클라이언트의 JavaScript에서 쿠키 접근 제한
+//            cookie.setSecure(true);         // HTTPS 환경에서만 전송
+//            cookie.setPath("/");            // 모든 경로에서 유효
+//            cookie.setMaxAge(60 * 60 * 24); // 쿠키의 만료 시간: 1일
+//            response.addCookie(cookie);
+            ResponseCookie cookie = createCookie(token);
+            response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
             // 7. 회원 ID와 토큰을 포함한 응답 DTO 생성 후 반환
             AuthResponseDto responseDto = AuthResponseDto
@@ -418,10 +420,10 @@ public class AuthController {
     private ResponseCookie createCookie(String token) {
         return ResponseCookie.from("jwt_token", token)
                 .httpOnly(true)    // JavaScript 접근 차단
-                .secure(true)      // HTTPS 전용
+                .secure(false)      // HTTPS 전용
                 .path("/")         // 모든 경로에서 유효
                 .maxAge(60 * 60 * 24) // 1일(86400초)
-                .sameSite("Lax")   // CSRF 방지
+                .sameSite("None")   // CSRF 방지
                 .domain("localhost") // 개발 환경 도메인
                 .build();
     }
@@ -435,7 +437,7 @@ public class AuthController {
                 .secure(false)
                 .path("/")
                 .maxAge(0)
-                .sameSite("Lax")
+                .sameSite("None")
                 .domain("localhost")
                 .build();
 
