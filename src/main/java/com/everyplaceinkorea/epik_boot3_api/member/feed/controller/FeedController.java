@@ -67,13 +67,6 @@ public class FeedController {
         return ResponseEntity.noContent().build();
     }
 
-    // 좋아요 취소
-    @DeleteMapping("{feedId}/like")
-    public ResponseEntity<Void> unlike(@PathVariable Long feedId) {
-        feedService.unLikeFeed(feedId);
-        return ResponseEntity.noContent().build();
-    }
-
     /**
      * 마이 피드 조회
      * @param categoryId 카테고리 ID (optional)

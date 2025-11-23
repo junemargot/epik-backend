@@ -24,17 +24,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class InfoController {
 
-    @Autowired
-    public InfoService infoService;
-
-    private AuthenticationManager authenticationManager;
-    private JwtUtil jwtUtil;
-    private MemberRepository memberRepository;
-
-    public InfoController(AuthenticationManager authenticationManager, JwtUtil jwtUtil) {
-        this.authenticationManager = authenticationManager;
-        this.jwtUtil = jwtUtil;
-    }
+    private final InfoService infoService;
 
     @PostMapping("/info")
     public ResponseEntity<?> update(@RequestBody InfoRequestDto infoRequestDto, HttpServletResponse response, HttpServletRequest request) {

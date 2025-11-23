@@ -1,6 +1,5 @@
 package com.everyplaceinkorea.epik_boot3_api.member.mypage.Info.service;
 
-import com.everyplaceinkorea.epik_boot3_api.admin.member.service.MemberService;
 import com.everyplaceinkorea.epik_boot3_api.auth.entity.EpikUserDetails;
 import com.everyplaceinkorea.epik_boot3_api.auth.util.JwtUtil;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
@@ -14,7 +13,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,7 +24,6 @@ import java.util.*;
 
 @Slf4j
 @Service
-@Transactional
 public class DefaultInfoService implements InfoService {
 
     private static final Set<String> ALLOWED_EXTENSIONS =
@@ -83,6 +80,7 @@ public class DefaultInfoService implements InfoService {
 //    }
 
     @Override
+    @Transactional
     public Map<String, Object> updateInfoWithToken(InfoRequestDto infoRequestDto, HttpServletResponse response) {
         // 1. 현재 로그인한 사용자 확인
         Long currentMemberId = SecurityUtil.getCurrentMemberId();
@@ -122,6 +120,7 @@ public class DefaultInfoService implements InfoService {
 
 
     @Override
+    @Transactional
     public ProfilePicResponseDto updateProfilePic(ProfilePicRequestDto profilePicRequestDto, MultipartFile profileImage) throws IOException {
         Long memberId = profilePicRequestDto.getId();
         log.info("프로필 이미지 업데이트 시작 - 회원 ID: {}", memberId);
@@ -146,6 +145,7 @@ public class DefaultInfoService implements InfoService {
     }
 
     @Override
+    @Transactional
     public Map<String, Object> updateProfileImageWithToken(MultipartFile profileImage, HttpServletResponse response) throws IOException {
 
         // 1. 현재 로그인한 사용자의 Member 엔티티 조회
