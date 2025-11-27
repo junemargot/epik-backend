@@ -2,6 +2,7 @@ package com.everyplaceinkorea.epik_boot3_api.member.feed.controller;
 
 import com.everyplaceinkorea.epik_boot3_api.anonymous.feed.dto.FeedResponseDto;
 import com.everyplaceinkorea.epik_boot3_api.member.feed.dto.FeedCreateDto;
+import com.everyplaceinkorea.epik_boot3_api.member.feed.dto.FeedReportDto;
 import com.everyplaceinkorea.epik_boot3_api.member.feed.dto.FeedUpdateDto;
 import com.everyplaceinkorea.epik_boot3_api.member.feed.sesrvice.FeedService;
 import lombok.RequiredArgsConstructor;
@@ -95,5 +96,13 @@ public class FeedController {
         log.info("좋아요한 피드 조회 - sort: {}, categoryId: {}", sort, categoryId);
         return ResponseEntity.status(HttpStatus.OK)
                 .body(feedService.getLikedFeeds(sort, categoryId));
+    }
+
+    @PostMapping("/{feedId}/report")
+    public ResponseEntity<Void> reportFeed(
+            @PathVariable("feedId") Long id,
+            @RequestBody FeedReportDto reportDto) {
+        feedService.reportFeed(id, reportDto);
+        return ResponseEntity.ok().build();
     }
 }
