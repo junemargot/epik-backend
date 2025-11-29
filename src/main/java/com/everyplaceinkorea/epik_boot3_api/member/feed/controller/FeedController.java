@@ -19,7 +19,7 @@ import java.util.List;
  */
 
 @RestController
-@RequestMapping("feed")
+@RequestMapping("member/feed")
 @RequiredArgsConstructor
 @Slf4j
 public class FeedController {

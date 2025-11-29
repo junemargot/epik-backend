@@ -1,6 +1,7 @@
 package com.everyplaceinkorea.epik_boot3_api.repository.feed;
 
 import com.everyplaceinkorea.epik_boot3_api.entity.feed.Feed;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -91,4 +92,12 @@ public interface FeedRepository extends JpaRepository<Feed, Long> {
   @Query("UPDATE Feed f SET f.commentCount = f.commentCount - 1 WHERE f.id = :feedId AND f.commentCount > 0")
   int decrementCommentCount(@Param("feedId") Long feedId);
 
+  @Query("SELECT f FROM Feed f " +
+          "WHERE (:keyword IS NULL OR :searchType IS NULL) " +
+          "OR (:searchType = 'content' AND f.content LIKE %:keyword%) " +
+          "OR (:searchType = 'writer' AND f.member.nickname LIKE %:keyword%) " +
+          "OR (:searchType = 'all' AND (f.content LIKE %:keyword% OR f.member.nickname LIKE %:keyword%))")
+  Page<Feed> searchFeed(@Param("keyword") String keyword,
+                        @Param("searchType") String searchType,
+                        Pageable pageable);
 }
