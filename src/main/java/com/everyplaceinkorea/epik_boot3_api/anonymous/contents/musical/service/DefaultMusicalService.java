@@ -34,9 +34,22 @@ public class DefaultMusicalService implements MusicalService{
         List<MusicalResponseDto> responseDtos = musicals
                 .getContent()
                 .stream()
-                .map(Musical ->{
-                    MusicalResponseDto responseDto = modelMapper.map(Musical, MusicalResponseDto.class);
-                    return responseDto;
+                .map(musical ->{
+                    MusicalResponseDto dto = modelMapper.map(musical, MusicalResponseDto.class);
+
+                    // 공연 상태 설정
+                    LocalDate today = LocalDate.now();
+                    if(today.isBefore(musical.getStartDate())) {
+                        dto.setPerformanceStatus("공연예정");
+                    } else if(today.isAfter(musical.getEndDate())) {
+                        dto.setPerformanceStatus("종료");
+                    } else {
+                        dto.setPerformanceStatus("진행중");
+                    }
+
+                    dto.setRegionName(musical.getKopisArea());
+
+                    return dto;
                 })
                 .toList();
 
@@ -46,26 +59,39 @@ public class DefaultMusicalService implements MusicalService{
     // 뮤지컬 랜덤 조회
     @Override
     public List<MusicalResponseDto> getMusicalsByRandom() {
-      LocalDate today = LocalDate.now();
-      List<Musical> musicals = musicalRepository.findActiveMusicalByRandom(today);
+        LocalDate today = LocalDate.now();
+        List<Musical> musicals = musicalRepository.findActiveMusicalByRandom(today);
 
-      return musicals.stream()
-              .map(musical -> {
-                MusicalResponseDto dto = modelMapper.map(musical, MusicalResponseDto.class);
+        return musicals.stream()
+        .map(musical -> {
+        MusicalResponseDto dto = modelMapper.map(musical, MusicalResponseDto.class);
 
-                // 데이터 소스 설정
+                // 공연 상태 설정
+                if(today.isBefore(musical.getStartDate())) {
+                    dto.setPerformanceStatus("공연예정");
+                } else if(today.isAfter(musical.getEndDate())) {
+                    dto.setPerformanceStatus("종료");
+                } else {
+                    dto.setPerformanceStatus("진행중");
+                }
+
+                // 지역 정보 설정
+                dto.setRegionName(musical.getKopisArea());
+
+
+            // 데이터 소스 설정
                 dto.setDataSource(musical.getDataSource());
-                
+
                 // 이미지 처리 로직 개선
                 if(musical.getDataSource() == DataSource.KOPIS_API) {
-                  dto.setImageUrl(musical.getKopisPoster()); // KOPIS 원본 포스터 URL
-                  dto.setFileSavedName(musical.getFileSavedName()); // 파일명 설정
+                    dto.setImageUrl(musical.getKopisPoster()); // KOPIS 원본 포스터 URL
+                    dto.setFileSavedName(musical.getFileSavedName()); // 파일명 설정
                 } else {
-                  dto.setFileSavedName(musical.getFileSavedName());
+                    dto.setFileSavedName(musical.getFileSavedName());
                 }
 
                 return dto;
-              })
-              .toList();
+        })
+        .toList();
     }
 }

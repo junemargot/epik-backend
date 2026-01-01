@@ -28,4 +28,5 @@ public class ConcertResponseDto {
     private DataSource dataSource;
     private String genreName;
     private String regionName;
+    private String performanceStatus;
 }
