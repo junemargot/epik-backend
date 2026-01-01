@@ -92,7 +92,19 @@ public class DefaultFeedService implements FeedService {
 
                     String profileImagePath = null;
                     if(feed.getMember().getProfileImg() != null) {
-                        profileImagePath = "/uploads/images/user/" + feed.getMember().getProfileImg();
+                        String profileImg = feed.getMember().getProfileImg();
+
+                        // 외부 URL인 경우 (소셜 계정) - 그대로 반환
+                        if(profileImg.startsWith("http://") || profileImg.startsWith("https://")) {
+                            profileImagePath = profileImg;
+                        // 로컬 경로인 경우
+                        } else if(profileImg.startsWith("/")) {
+                            profileImagePath = profileImg;
+                        } else if(profileImg.startsWith("uploads/")) {
+                            profileImagePath = "/" + profileImg;
+                        } else {
+                            profileImagePath = "/" + profileImg;
+                        }
                     }
 
                     // DTO 생성

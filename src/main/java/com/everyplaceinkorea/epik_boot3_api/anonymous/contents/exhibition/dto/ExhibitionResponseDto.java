@@ -23,4 +23,6 @@ public class ExhibitionResponseDto {
     private LocalDate startDate;
     // 종료일
     private LocalDate endDate;
+
+    private String performanceStatus;
 }

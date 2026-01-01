@@ -87,6 +87,16 @@ public class DefaultConcertService implements ConcertService {
   private ConcertResponseDto mapToResponseDto(Concert concert) {
     ConcertResponseDto dto = modelMapper.map(concert, ConcertResponseDto.class);
 
+    // 공연 상태 설정
+    LocalDate today = LocalDate.now();
+    if(today.isBefore(concert.getStartDate())) {
+      dto.setPerformanceStatus("공연예정");
+    } else if(today.isAfter(concert.getEndDate())) {
+      dto.setPerformanceStatus("종료");
+    } else {
+      dto.setPerformanceStatus("진행중");
+    }
+
     // 데이터 소스 설정
     dto.setDataSource(concert.getDataSource());
 

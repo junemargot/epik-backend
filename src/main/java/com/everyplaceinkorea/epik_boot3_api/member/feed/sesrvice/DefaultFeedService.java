@@ -8,14 +8,13 @@ import com.everyplaceinkorea.epik_boot3_api.entity.comment.FeedComment;
 import com.everyplaceinkorea.epik_boot3_api.entity.feed.*;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.member.feed.dto.FeedCreateDto;
+import com.everyplaceinkorea.epik_boot3_api.member.feed.dto.FeedReportDto;
 import com.everyplaceinkorea.epik_boot3_api.member.feed.dto.FeedUpdateDto;
 import com.everyplaceinkorea.epik_boot3_api.repository.Member.MemberRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.comment.FeedCommentRepository;
-import com.everyplaceinkorea.epik_boot3_api.repository.feed.FeedCategoryRepository;
-import com.everyplaceinkorea.epik_boot3_api.repository.feed.FeedImageRepository;
-import com.everyplaceinkorea.epik_boot3_api.repository.feed.FeedLikeRepository;
-import com.everyplaceinkorea.epik_boot3_api.repository.feed.FeedRepository;
+import com.everyplaceinkorea.epik_boot3_api.repository.feed.*;
 import com.everyplaceinkorea.epik_boot3_api.util.SecurityUtil;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -43,6 +42,7 @@ public class DefaultFeedService implements FeedService {
     private final FeedLikeRepository feedLikeRepository;
     private final ModelMapper modelMapper;
     private final FeedCommentRepository feedCommentRepository;
+    private final FeedReportRepository feedReportRepository;
 
     @Value("${file.tmp-dir}")
     private String tmpPath;
@@ -230,6 +230,35 @@ public class DefaultFeedService implements FeedService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public void reportFeed(Long id, FeedReportDto reportDto) {
+        Long currentMemberId = SecurityUtil.getCurrentMemberId();
+
+        // 회원 조회
+        Member member = memberRepository.findById(currentMemberId)
+                .orElseThrow(() -> new EntityNotFoundException("회원을 찾을 수 없습니다."));
+
+        // 피드 조회
+        Feed feed = feedRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("피드를 찾을 수 없습니다."));
+
+        // 신고 내용 조합
+        String content = reportDto.getReason();
+        if(reportDto.getDetail() != null && !reportDto.getDetail().isEmpty()) {
+            content += " - " + reportDto.getDetail();
+        }
+
+        // 신고 내역 생성
+        FeedReport report = new FeedReport();
+        report.setFeed(feed);
+        report.setMember(member);
+        report.setContent(content);
+        report.setStatus((byte) 0); // 0: 미처리
+
+        feedReportRepository.save(report);
+        log.info("피드 신고 완료 - feedId: {}, memberId: {}, reason: {}", id, currentMemberId, reportDto.getReason());
+    }
+
     private FeedResponseDto convertToDto(Feed feed) {
         // 현재 로그인한 회원 ID 가져오기
         Long currentMemberId = SecurityUtil.getCurrentMemberId();
@@ -263,7 +292,19 @@ public class DefaultFeedService implements FeedService {
         // 프로필 이미지 경로 생성
         String profileImagePath = null;
         if(feed.getMember().getProfileImg() != null) {
-            profileImagePath = "/uploads/images/" + feed.getMember().getProfileImg();
+            String profileImg = feed.getMember().getProfileImg();
+
+            // 외부 URL인 경우 (소셜 계정) - 그대로 반환
+            if(profileImg.startsWith("http://") || profileImg.startsWith("https://")) {
+                profileImagePath = profileImg;
+                // 로컬 경로인 경우
+            } else if(profileImg.startsWith("/")) {
+                profileImagePath = profileImg;
+            } else if(profileImg.startsWith("uploads/")) {
+                profileImagePath = "/" + profileImg;
+            } else {
+                profileImagePath = "/" + profileImg;
+            }
         }
 
         return FeedResponseDto.builder()
