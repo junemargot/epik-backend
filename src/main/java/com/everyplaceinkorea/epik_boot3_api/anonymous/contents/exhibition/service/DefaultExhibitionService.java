@@ -34,8 +34,18 @@ public class DefaultExhibitionService implements ExhibitionService {
         List<ExhibitionResponseDto> responseDtos = musicals
                 .getContent()
                 .stream()
-                .map(Exhibition ->{
-                    ExhibitionResponseDto responseDto = modelMapper.map(Exhibition, ExhibitionResponseDto.class);
+                .map(exhibition ->{
+                    ExhibitionResponseDto responseDto = modelMapper.map(exhibition, ExhibitionResponseDto.class);
+
+                    LocalDate today = LocalDate.now();
+                    if(today.isBefore(exhibition.getStartDate())) {
+                        responseDto.setPerformanceStatus("공연예정");
+                    } else if(today.isAfter(exhibition.getEndDate())) {
+                        responseDto.setPerformanceStatus("종료");
+                    } else {
+                        responseDto.setPerformanceStatus("진행중");
+                    }
+
                     return responseDto;
                 })
                 .toList();
@@ -46,12 +56,23 @@ public class DefaultExhibitionService implements ExhibitionService {
     // 전시회 랜덤 조회
     @Override
     public List<ExhibitionResponseDto> getExhibitionsByRandom() {
-      LocalDate today = LocalDate.now();
-      List<Exhibition> exhibitions = exhibitionRepository.findActiveExhibitionByRandom(today);
+        LocalDate today = LocalDate.now();
+        List<Exhibition> exhibitions = exhibitionRepository.findActiveExhibitionByRandom(today);
 
-      return exhibitions.stream()
-              .map(exhibition -> modelMapper.map(exhibition, ExhibitionResponseDto.class))
-              .toList();
+        return exhibitions.stream()
+            .map(exhibition -> {
+                ExhibitionResponseDto dto = modelMapper.map(exhibition, ExhibitionResponseDto.class);
+
+                if(today.isBefore(exhibition.getStartDate())) {
+                    dto.setPerformanceStatus("공연예정");
+                } else if(today.isAfter(exhibition.getEndDate())) {
+                    dto.setPerformanceStatus("종료");
+                } else {
+                    dto.setPerformanceStatus("진행중");
+                }
+
+                return dto;
+            }).toList();
     }
 }
 

@@ -48,4 +48,7 @@ public class MusicalResponseDto {
         }
         return null; // 이미지가 없는 경우
     }
+
+    private String regionName;
+    private String performanceStatus;
 }
