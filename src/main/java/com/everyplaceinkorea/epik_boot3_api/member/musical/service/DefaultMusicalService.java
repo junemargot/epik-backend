@@ -1,9 +1,11 @@
 package com.everyplaceinkorea.epik_boot3_api.member.musical.service;
 
+import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.Musical;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.MusicalBookmark;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.MusicalBookmarkId;
+import com.everyplaceinkorea.epik_boot3_api.image.service.ImageCacheService;
 import com.everyplaceinkorea.epik_boot3_api.member.musical.dto.MusicalResponseDto;
 import com.everyplaceinkorea.epik_boot3_api.repository.Member.MemberRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.musical.MusicalBookmarkRepository;
@@ -27,6 +29,7 @@ public class DefaultMusicalService implements MusicalService {
     private final MusicalRepository musicalRepository;
     private final MusicalBookmarkRepository musicalBookmarkRepository;
     private final MemberRepository memberRepository;
+    private final ImageCacheService imageCacheService;
 
     @Override
     public List<MusicalResponseDto> getBookmark(Long id) {
@@ -34,15 +37,25 @@ public class DefaultMusicalService implements MusicalService {
 
         return bookmarks.stream()
                 .map(MusicalBookmark::getMusical)
-                .map(musical -> MusicalResponseDto.builder()
-                        .id(musical.getId())
-                        .title(musical.getTitle())
-                        .startDate(musical.getStartDate())
-                        .endDate(musical.getEndDate())
-                        .venue(musical.getVenue())
-                        .saveImageName(musical.getFileSavedName())
-                        .kopisPoster(musical.getKopisPoster())
-                        .build())
+                .map(musical -> {
+                    String kopisPosterUrl = null;
+
+                    if (musical.getDataSource() == DataSource.KOPIS_API && musical.getKopisPoster() != null) {
+                        kopisPosterUrl = imageCacheService.getOrCacheImage(
+                                musical.getKopisPoster(),
+                                musical.getId().toString()
+                        );
+                    }
+                    return MusicalResponseDto.builder()
+                            .id(musical.getId())
+                            .title(musical.getTitle())
+                            .startDate(musical.getStartDate())
+                            .endDate(musical.getEndDate())
+                            .venue(musical.getVenue())
+                            .saveImageName(musical.getFileSavedName())
+                            .kopisPoster(kopisPosterUrl)
+                            .build();
+                })
                 .collect(Collectors.toList());
     }
 

@@ -1,9 +1,11 @@
 package com.everyplaceinkorea.epik_boot3_api.member.concert.service;
 
+import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.concert.Concert;
 import com.everyplaceinkorea.epik_boot3_api.entity.concert.ConcertBookmark;
 import com.everyplaceinkorea.epik_boot3_api.entity.concert.ConcertBookmarkId;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
+import com.everyplaceinkorea.epik_boot3_api.image.service.ImageCacheService;
 import com.everyplaceinkorea.epik_boot3_api.member.concert.dto.ConcertResponseDto;
 import com.everyplaceinkorea.epik_boot3_api.repository.Member.MemberRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.concert.ConcertBookmarkRepository;
@@ -27,6 +29,7 @@ public class DefaultConcertService implements ConcertService {
     private final ConcertRepository concertRepository;
     private final ConcertBookmarkRepository concertBookmarkRepository;
     private final MemberRepository memberRepository;
+    private final ImageCacheService imageCacheService;
 
     @Override
     public List<ConcertResponseDto> getBookmark(Long id) {
@@ -34,15 +37,26 @@ public class DefaultConcertService implements ConcertService {
 
         return bookmarks.stream()
                 .map(ConcertBookmark::getConcert)
-                .map(concert -> ConcertResponseDto.builder()
-                        .id(concert.getId())
-                        .title(concert.getTitle())
-                        .startDate(concert.getStartDate())
-                        .endDate(concert.getEndDate())
-                        .venue(concert.getVenue())
-                        .saveImageName(concert.getFileSavedName())
-                        .kopisPoster(concert.getKopisPoster())
-                        .build())
+                .map(concert -> {
+                    String kopisPosterUrl = null;
+
+                    if (concert.getDataSource() == DataSource.KOPIS_API && concert.getKopisPoster() != null) {
+                        kopisPosterUrl = imageCacheService.getOrCacheImage(
+                                concert.getKopisPoster(),
+                                concert.getId().toString()
+                        );
+                    }
+
+                    return ConcertResponseDto.builder()
+                            .id(concert.getId())
+                            .title(concert.getTitle())
+                            .startDate(concert.getStartDate())
+                            .endDate(concert.getEndDate())
+                            .venue(concert.getVenue())
+                            .saveImageName(concert.getFileSavedName())
+                            .kopisPoster(kopisPosterUrl)
+                            .build();
+                })
                 .collect(Collectors.toList());
     }
 
