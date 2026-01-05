@@ -72,8 +72,9 @@ public class ImageCacheService {
         if(imageUrl == null || imageUrl.isEmpty()) return null;
 
         try {
-            // 1. WebP 형식으로 캐시 파일명 생성
-            String cachedFileName = performanceId + "_poster.webp";
+            // 1. 캐시 파일명 생성
+            String fileExtension = extractFileExtension(imageUrl);
+            String cachedFileName = performanceId + "_poster." + fileExtension;
             Path cachePath = Paths.get(CACHE_DIR, cachedFileName);
 
             // 2. 캐시 HIT
@@ -97,21 +98,14 @@ public class ImageCacheService {
                     log.info("백그라운드 다운로드: {}", cachedFileName);
 
                     // 원본 다운로드
-                    byte[] originalBytes = downloadImage(imageUrl);
-                    long originalSize = originalBytes.length;
-
-                    // WebP 변환
-                    byte[] webpBytes = convertToWebP(originalBytes);
+                    byte[] imageBytes = downloadImage(imageUrl);
+                    log.info("다운로드 완료: {}KB", imageBytes.length / 1024);
 
                     // 저장
                     Files.createDirectories(cachePath.getParent());
-                    Files.write(cachePath, webpBytes);
+                    Files.write(cachePath, imageBytes);
 
-                    log.info("캐싱 완료: {} (원본: {}KB -> WebP: {}KB, {:.1f}% 감소)",
-                            cachedFileName,
-                            originalSize / 1024,
-                            webpBytes.length / 1024,
-                            (1 - (double)webpBytes.length / originalSize) * 100);
+                    log.info("캐싱 완료: {} ({}KB)", cachedFileName, imageBytes.length / 1024);
 
                 } catch (Exception e) {
                     log.error("비동기 캐싱 실패: {}", cachedFileName, e);
