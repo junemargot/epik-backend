@@ -38,10 +38,10 @@ public class DefaultConcertService implements ConcertService {
         return bookmarks.stream()
                 .map(ConcertBookmark::getConcert)
                 .map(concert -> {
-                    String kopisPosterUrl = null;
+                    String imageUrl = null;
 
                     if (concert.getDataSource() == DataSource.KOPIS_API && concert.getKopisPoster() != null) {
-                        kopisPosterUrl = imageCacheService.getOrCacheImage(
+                        imageUrl = imageCacheService.getOrCacheImage(
                                 concert.getKopisPoster(),
                                 concert.getId().toString()
                         );
@@ -53,8 +53,9 @@ public class DefaultConcertService implements ConcertService {
                             .startDate(concert.getStartDate())
                             .endDate(concert.getEndDate())
                             .venue(concert.getVenue())
+                            .dataSource(concert.getDataSource())
+                            .imageUrl(imageUrl)
                             .saveImageName(concert.getFileSavedName())
-                            .kopisPoster(kopisPosterUrl)
                             .build();
                 })
                 .collect(Collectors.toList());

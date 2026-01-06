@@ -1,5 +1,6 @@
 package com.everyplaceinkorea.epik_boot3_api.member.concert.dto;
 
+import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -22,4 +23,7 @@ public class ConcertResponseDto {
     // 사진
     private String saveImageName;
     private String kopisPoster;
+
+    private String imageUrl;         // 실제 이미지 URL (추가)
+    private DataSource dataSource;   // 데이터 출처
 }
