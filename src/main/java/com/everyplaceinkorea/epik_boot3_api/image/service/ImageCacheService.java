@@ -1,32 +1,23 @@
 package com.everyplaceinkorea.epik_boot3_api.image.service;
 
+import io.jsonwebtoken.security.SecurityException;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import javax.imageio.IIOImage;
-import javax.imageio.ImageIO;
-import javax.imageio.ImageWriteParam;
-import javax.imageio.ImageWriter;
-import javax.imageio.stream.ImageOutputStream;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 /**
  * 이미지 비동기 캐싱 및 WebP 변환을 처리하는 서비스 클래스
@@ -54,13 +45,18 @@ public class ImageCacheService {
 
     @PostConstruct
     public void init() {
-        executorService = Executors.newFixedThreadPool(threadPoolSize);
-        log.info("ImageCacheService 초기화 완료");
-        log.info("ThreadPool 크기: {}", threadPoolSize);
-        log.info("연결 타임아웃: {}ms", connectTimeout);
-        log.info("읽기 타임아웃: {}ms", readTimeout);
-        log.info("캐시 디렉토리: {}", CACHE_DIR);
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(threadPoolSize);
+        executor.setMaxPoolSize(threadPoolSize * 2);
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("image-cache-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.initialize();
+        executorService = executor.getThreadPoolExecutor();
+
+        log.info("ImageCacheService 초기화 완료 - ThreadPool 크기: {}", threadPoolSize);
     }
+
 
     /**
      * KOPIS 이미지 동적 캐싱
@@ -107,12 +103,16 @@ public class ImageCacheService {
 
                     log.info("캐싱 완료: {} ({}KB)", cachedFileName, imageBytes.length / 1024);
 
+                } catch (IOException e) {
+                    log.error("네트워크 오류로 캐싱 실패: {}", cachedFileName, e);
+                } catch (SecurityException e) {
+                    log.error("보안 검증 실패: {}", cachedFileName, e);
                 } catch (Exception e) {
-                    log.error("비동기 캐싱 실패: {}", cachedFileName, e);
-
+                    log.error("예상치 못한 오류로 캐싱 실패: {}", cachedFileName, e);
                 } finally {
                     downloadingImages.remove(cachedFileName);
                 }
+
             });
 
             return imageUrl;
@@ -130,59 +130,23 @@ public class ImageCacheService {
      * @throws IOException 다운로드 실패 또는 HTTP 상태 코드가 200대가 아닐 경우
      */
     private byte[] downloadImage(String url) throws IOException {
-        RestTemplate restTemplate = new RestTemplate();
+        // URL 검증
+        if(!isValidImageUrl(url)) {
+            throw new IllegalArgumentException("Invalid image URL: " + url);
+        }
 
-        // 타임아웃 설정
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(connectTimeout);
-        factory.setReadTimeout(readTimeout);
-        restTemplate.setRequestFactory(factory);
+        RestTemplate restTemplate = new RestTemplate();
+        restTemplate.setRequestFactory(createHttpRequestFactory());
 
         ResponseEntity<byte[]> response = restTemplate.getForEntity(url, byte[].class);
 
-        if(response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-            return response.getBody();
+        // Content-Type 검증
+        String contentType = response.getHeaders().getContentType().toString();
+        if(!contentType.startsWith("image/")) {
+            throw new IOException("Invalid content type: " + contentType);
         }
 
-        throw new IOException("다운로드 실패: " + response.getStatusCode());
-    }
-
-    /**
-     * 이미지 byte 배열을 WebP 형식으로 변환
-     * @param imageBytes 원본 이미지의 byte 배열
-     * @return WebP로 변환된 이미지의 byte 배열. 실패 시 원본 반환
-     * @throws IOException 원본 이미지를 읽을 수 없을 때 발생
-     */
-    private byte[] convertToWebP(byte[] imageBytes) throws IOException {
-        try {
-            BufferedImage image = ImageIO.read(new ByteArrayInputStream(imageBytes));
-            if(image == null) {
-                throw new IOException("원본 이미지 데이터를 읽을 수 없습니다.");
-            }
-
-            // WebP ImageWriter 가져오기
-            ImageWriter writer = ImageIO.getImageWritersByMIMEType("image/webp").next();
-
-            // WebP 변환 파라미터 설정 (손실 압축, 품질 80%)
-            ImageWriteParam writeParam = writer.getDefaultWriteParam();
-            writeParam.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
-            writeParam.setCompressionType("Lossy");
-            writeParam.setCompressionQuality(0.8f);
-
-            // 메모리 내의 ByteArray로 WebP 이미지 출력
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            try(ImageOutputStream ios = ImageIO.createImageOutputStream(baos)) {
-                writer.setOutput(ios);
-                writer.write(null, new IIOImage(image, null, null), writeParam);
-            }
-
-            writer.dispose();
-            return baos.toByteArray();
-
-        } catch(Exception e) {
-            log.warn("WebP 변환 실패, 원본 이미지 형식으로 저장: {}", e.getMessage());
-            return imageBytes;
-        }
+        return response.getBody();
     }
 
     /**
@@ -208,35 +172,6 @@ public class ImageCacheService {
     }
 
     /**
-     * 현재 캐시 상태에 대한 통계를 반환
-     * @return 캐시된 파일 수, 총 크기(MB), 현재 다운로드 중인 파일 수를 담은 Map
-     */
-    public Map<String, Object> getCacheStats() {
-        try {
-            long cacheCount = Files.list(Paths.get(CACHE_DIR)).count();
-            long totalSize = Files.walk(Paths.get(CACHE_DIR))
-                    .filter(Files::isRegularFile)
-                    .mapToLong(p -> {
-                        try {
-                            return Files.size(p);
-                        } catch(IOException e) {
-                            return 0L;
-                        }
-                    })
-                    .sum();
-
-            return Map.of(
-                    "cachedFiles", cacheCount,
-                    "totalSizeMB", totalSize / 1024 / 1024,
-                    "downloadingCount", downloadingImages.size()
-            );
-        } catch(IOException e) {
-            log.error("캐시 통계 조회 실패");
-            return Map.of("error", e.getCause());
-        }
-    }
-
-    /**
      * URL 문자열에서 파일 확장자 추출
      * @param url 확장자를 추출할 URL
      * @return 소문자로 변환된 파일 확장자. 없으면 "jpg"를 기본값으로 반환
@@ -256,5 +191,36 @@ public class ImageCacheService {
         }
 
         return "jpg";
+    }
+
+    /**
+     * HTTP 요청 Factory 생성 (타임아웃 설정 포함)
+     */
+    private SimpleClientHttpRequestFactory createHttpRequestFactory() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(connectTimeout);
+        factory.setReadTimeout(readTimeout);
+        return factory;
+    }
+
+
+    private boolean isValidImageUrl(String url) {
+        try {
+            URL urlObj = new URL(url);
+            String host = urlObj.getHost().toLowerCase();
+
+            // 내부 IP 및 localhost 차단
+            if (host.equals("localhost") || host.equals("127.0.0.1") ||
+                    host.startsWith("192.168.") || host.startsWith("10.") ||
+                    host.startsWith("172.")) {
+                return false;
+            }
+
+            // KOPIS 도메인만 허용하도록 제한
+            return host.contains("kopis.or.kr");
+
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

@@ -30,10 +30,6 @@ public class WebConfig implements WebMvcConfigurer {
     registry.addResourceHandler("/uploads/**") // 해당 경로 요청이 오면
             .addResourceLocations("file:" + currentPath + "/uploads/"); // 지정한 경로에서 제공
 
-    // 2. 추가 /api/v1/uploads/** 매핑
-    registry.addResourceHandler("/uploads/**")
-            .addResourceLocations("file:" + currentPath + "/uploads/");
-
     // KOPIS 캐시 디렉토리 매핑
     registry.addResourceHandler("/cache/kopis/**")
             .addResourceLocations("file:" + currentPath + "/uploads/cache/kopis/")
