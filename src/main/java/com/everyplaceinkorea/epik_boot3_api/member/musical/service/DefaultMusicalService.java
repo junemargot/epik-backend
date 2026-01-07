@@ -38,10 +38,10 @@ public class DefaultMusicalService implements MusicalService {
         return bookmarks.stream()
                 .map(MusicalBookmark::getMusical)
                 .map(musical -> {
-                    String kopisPosterUrl = null;
+                    String imageUrl = null;
 
                     if (musical.getDataSource() == DataSource.KOPIS_API && musical.getKopisPoster() != null) {
-                        kopisPosterUrl = imageCacheService.getOrCacheImage(
+                        imageUrl = imageCacheService.getOrCacheImage(
                                 musical.getKopisPoster(),
                                 musical.getId().toString()
                         );
@@ -52,8 +52,9 @@ public class DefaultMusicalService implements MusicalService {
                             .startDate(musical.getStartDate())
                             .endDate(musical.getEndDate())
                             .venue(musical.getVenue())
+                            .dataSource(musical.getDataSource())
+                            .imageUrl(imageUrl)
                             .saveImageName(musical.getFileSavedName())
-                            .kopisPoster(kopisPosterUrl)
                             .build();
                 })
                 .collect(Collectors.toList());
