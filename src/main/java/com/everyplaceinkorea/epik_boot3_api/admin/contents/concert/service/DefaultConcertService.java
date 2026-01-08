@@ -7,6 +7,7 @@ import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.concert.*;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.EditorImage.UploadFolderType;
+import com.everyplaceinkorea.epik_boot3_api.image.service.ImageCacheService;
 import com.everyplaceinkorea.epik_boot3_api.repository.Member.MemberRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.RegionRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.concert.*;
@@ -52,6 +53,8 @@ public class DefaultConcertService implements ConcertService {
 
   @Value("${file.upload-dir}")
   private String uploadPath;
+
+  private final ImageCacheService imageCacheService;
 
   @Override
   public ConcertListDto getList(int page, String keyword, String searchType) {
@@ -366,15 +369,32 @@ public class DefaultConcertService implements ConcertService {
    */
   private void handleConcertImages(Concert concert, ConcertResponseDto concertResponseDto) {
     if(concert.getDataSource() == DataSource.KOPIS_API) {
-      concertResponseDto.setImageUrl(concert.getKopisPoster());
+
+      // 캐싱 적용
+      String cachedPosterUrl = imageCacheService.getOrCacheImage(
+              concert.getKopisPoster(),
+              concert.getId().toString()
+      );
+
+      concertResponseDto.setImageUrl(cachedPosterUrl);
       concertResponseDto.setSaveImageName(concert.getFileSavedName());
 
       // 상세 이미지 처리
       if(concert.getDetailImages() != null && !concert.getDetailImages().trim().isEmpty()) {
         String[] imageUrls = concert.getDetailImages().split(",");
-        List<String> imageList = Arrays.asList(imageUrls);
-        concertResponseDto.setConcertImages(imageList);
-        log.info("상세 이미지 설정 완료: {}개", imageList.size());
+
+        List<String> cachedImageList = new ArrayList<>();
+        for(int i = 0; i < imageUrls.length; i++) {
+          String cachedDetailUrl = imageCacheService.getOrCacheImage(
+                  imageUrls[i].trim(),
+                  concert.getId() + "_detail_" + i
+          );
+
+          cachedImageList.add(cachedDetailUrl);
+        }
+
+        concertResponseDto.setConcertImages(cachedImageList);
+        log.info("상세 이미지 캐싱 완료: {}개", cachedImageList.size());
       } else {
         log.info("상세 이미지 없음");
       }

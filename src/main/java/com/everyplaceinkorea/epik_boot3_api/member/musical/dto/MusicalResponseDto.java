@@ -1,5 +1,6 @@
 package com.everyplaceinkorea.epik_boot3_api.member.musical.dto;
 
+import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -25,4 +26,6 @@ public class MusicalResponseDto {
     // 사진
     private String saveImageName;
     private String kopisPoster;
+    private DataSource dataSource;
+    private String imageUrl;
 }

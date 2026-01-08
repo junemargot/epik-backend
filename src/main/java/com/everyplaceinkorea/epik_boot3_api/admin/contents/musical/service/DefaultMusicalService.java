@@ -7,6 +7,7 @@ import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.entity.Region;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.*;
 import com.everyplaceinkorea.epik_boot3_api.EditorImage.UploadFolderType;
+import com.everyplaceinkorea.epik_boot3_api.image.service.ImageCacheService;
 import com.everyplaceinkorea.epik_boot3_api.repository.Member.MemberRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.RegionRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.musical.MusicalImageRepository;
@@ -53,6 +54,7 @@ public class DefaultMusicalService implements MusicalService {
     private final RegionRepository regionRepository;
     private final ModelMapper modelMapper;
     private final MusicalImageRepository musicalImageRepository;
+    private final ImageCacheService imageCacheService;
 
     @Value("${file.tmp-dir}")
     private String tmpPath;
@@ -429,15 +431,28 @@ public class DefaultMusicalService implements MusicalService {
      */
     private void handleMusicalImages(Musical musical, MusicalResponseDto musicalResponseDto) {
         if(musical.getDataSource() == DataSource.KOPIS_API) {
-            musicalResponseDto.setImageUrl(musical.getKopisPoster());
+            String cachedPosterUrl = imageCacheService.getOrCacheImage(
+                    musical.getKopisPoster(),
+                    musical.getId().toString()
+            );
+            musicalResponseDto.setImageUrl(cachedPosterUrl);
             musicalResponseDto.setSaveImageName(musical.getFileSavedName());
 
             // 상세 이미지 처리
             if(musical.getKopisStyurls() != null && !musical.getKopisStyurls().trim().isEmpty()) {
                 String[] imageUrls = musical.getKopisStyurls().split(",");
-                List<String> imageList = Arrays.asList(imageUrls);
-                musicalResponseDto.setMusicalImages(imageList);
-                log.info("뮤지컬 상세 이미지 설정 완료: {}개", imageList.size());
+
+                List<String> cachedImageList = new ArrayList<>();
+                for(int i = 0; i < imageUrls.length; i++) {
+                    String cachedDetailUrl = imageCacheService.getOrCacheImage(
+                            imageUrls[i].trim(),
+                            musical.getId() + "_detail_" + i
+                    );
+                    cachedImageList.add(cachedDetailUrl);
+                }
+
+                musicalResponseDto.setMusicalImages(cachedImageList);
+                log.info("뮤지컬 상세 이미지 캐싱 완료: {}개", cachedImageList.size());
             } else {
                 log.info("상세 이미지 없음");
             }
