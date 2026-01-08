@@ -38,25 +38,17 @@ public class DefaultConcertService implements ConcertService {
         return bookmarks.stream()
                 .map(ConcertBookmark::getConcert)
                 .map(concert -> {
-                    String imageUrl = null;
-
-                    if (concert.getDataSource() == DataSource.KOPIS_API && concert.getKopisPoster() != null) {
-                        imageUrl = imageCacheService.getOrCacheImage(
-                                concert.getKopisPoster(),
-                                concert.getId().toString()
-                        );
-                    }
-
-                    return ConcertResponseDto.builder()
+                    ConcertResponseDto dto = ConcertResponseDto.builder()
                             .id(concert.getId())
                             .title(concert.getTitle())
                             .startDate(concert.getStartDate())
                             .endDate(concert.getEndDate())
                             .venue(concert.getVenue())
-                            .dataSource(concert.getDataSource())
-                            .imageUrl(imageUrl)
                             .saveImageName(concert.getFileSavedName())
                             .build();
+
+                    handleConcertImages(concert, dto);
+                    return dto;
                 })
                 .collect(Collectors.toList());
     }
@@ -102,6 +94,22 @@ public class DefaultConcertService implements ConcertService {
 
             concertBookmarkRepository.save(newBookmark);
             return true;
+        }
+    }
+
+    private void handleConcertImages(Concert concert, ConcertResponseDto dto) {
+        if(concert.getDataSource() == DataSource.KOPIS_API) {
+            String imageUrl = null;
+
+            if(concert.getKopisPoster() != null) {
+                imageUrl = imageCacheService.getOrCacheImage(
+                        concert.getKopisPoster(),
+                        concert.getId().toString()
+                );
+            }
+
+            dto.setImageUrl(imageUrl);
+            dto.setDataSource(concert.getDataSource());
         }
     }
 }

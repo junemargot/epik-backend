@@ -14,6 +14,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -98,9 +99,6 @@ public class DefaultConcertService implements ConcertService {
     } else {
       dto.setPerformanceStatus("진행중");
     }
-
-    // 데이터 소스 설정
-    dto.setDataSource(concert.getDataSource());
 
     // 장르 정보 설정
     dto.setGenreName(concert.getKopisGenrenm());

@@ -43,18 +43,21 @@ public class ImageCacheService {
     private ExecutorService executorService;
     private final Set<String> downloadingImages = ConcurrentHashMap.newKeySet();
 
+    private static final int DEFAULT_QUEUE_CAPACITY = 100;
+    private static final int THREAD_POOL_MULTIPLIER = 2;
+
     @PostConstruct
     public void init() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(threadPoolSize);
-        executor.setMaxPoolSize(threadPoolSize * 2);
-        executor.setQueueCapacity(100);
+        executor.setMaxPoolSize(threadPoolSize * THREAD_POOL_MULTIPLIER);
+        executor.setQueueCapacity(DEFAULT_QUEUE_CAPACITY);
         executor.setThreadNamePrefix("image-cache-");
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.initialize();
         executorService = executor.getThreadPoolExecutor();
 
-        log.info("ImageCacheService 초기화 완료 - ThreadPool 크기: {}", threadPoolSize);
+        log.info("ImageCacheService 초기화 - Core: {}, Max: {}, Queue: {}",
+                threadPoolSize, threadPoolSize * THREAD_POOL_MULTIPLIER, DEFAULT_QUEUE_CAPACITY);
     }
 
 
@@ -98,8 +101,7 @@ public class ImageCacheService {
                     log.info("다운로드 완료: {}KB", imageBytes.length / 1024);
 
                     // 저장
-                    Files.createDirectories(cachePath.getParent());
-                    Files.write(cachePath, imageBytes);
+                    saveCachedImage(cachePath, imageBytes);
 
                     log.info("캐싱 완료: {} ({}KB)", cachedFileName, imageBytes.length / 1024);
 
@@ -222,5 +224,25 @@ public class ImageCacheService {
         } catch (Exception e) {
             return false;
         }
+    }
+
+    /**
+     * 캐시 이미지 파일 저장 (보안 검증 포함)
+     * @param cachePath 저장할 파일 경로
+     * @param imageBytes 이미지 데이터
+     * @throws IOException 파일 저장 실패 시
+     * @throws SecurityException 경로 검증 실패 시
+     */
+    private void saveCachedImage(Path cachePath, byte[] imageBytes) throws IOException {
+        // 캐시 디렉토리가 예상된 경로인지 검증
+        Path normalizedPath = cachePath.normalize();
+        Path expectedCacheDir = Paths.get(CACHE_DIR).normalize();
+
+        if(!normalizedPath.startsWith(expectedCacheDir)) {
+            throw new SecurityException("Invalid cache path: " + normalizedPath);
+        }
+
+        Files.createDirectories(cachePath.getParent());
+        Files.write(cachePath, imageBytes);
     }
 }
