@@ -3,6 +3,7 @@ package com.everyplaceinkorea.epik_boot3_api.anonymous.contents.musical.service;
 import com.everyplaceinkorea.epik_boot3_api.anonymous.contents.musical.dto.MusicalResponseDto;
 import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.Musical;
+import com.everyplaceinkorea.epik_boot3_api.image.service.ImageCacheService;
 import com.everyplaceinkorea.epik_boot3_api.repository.musical.MusicalRepository;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
@@ -21,6 +22,7 @@ public class DefaultMusicalService implements MusicalService{
 
     private final MusicalRepository musicalRepository;
     private final ModelMapper modelMapper;
+    private final ImageCacheService imageCacheService;
 
     @Override
     public List<MusicalResponseDto> getMusicalsByRegion(Long regionId, Integer page) {
@@ -80,17 +82,21 @@ public class DefaultMusicalService implements MusicalService{
 
 
             // 데이터 소스 설정
-                dto.setDataSource(musical.getDataSource());
+            dto.setDataSource(musical.getDataSource());
 
-                // 이미지 처리 로직 개선
-                if(musical.getDataSource() == DataSource.KOPIS_API) {
-                    dto.setImageUrl(musical.getKopisPoster()); // KOPIS 원본 포스터 URL
-                    dto.setFileSavedName(musical.getFileSavedName()); // 파일명 설정
-                } else {
-                    dto.setFileSavedName(musical.getFileSavedName());
-                }
+            // 이미지 처리 로직 개선
+            if(musical.getDataSource() == DataSource.KOPIS_API) {
+                String cachedPosterUrl = imageCacheService.getOrCacheImage(
+                    musical.getKopisPoster(),
+                    musical.getId().toString()
+                );
+                dto.setImageUrl(cachedPosterUrl);
+                dto.setFileSavedName(musical.getFileSavedName());
+            } else {
+                dto.setFileSavedName(musical.getFileSavedName());
+            }
 
-                return dto;
+            return dto;
         })
         .toList();
     }

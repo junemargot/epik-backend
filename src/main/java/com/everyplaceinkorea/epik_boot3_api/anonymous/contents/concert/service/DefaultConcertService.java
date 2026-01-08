@@ -3,6 +3,7 @@ package com.everyplaceinkorea.epik_boot3_api.anonymous.contents.concert.service;
 import com.everyplaceinkorea.epik_boot3_api.anonymous.contents.concert.dto.ConcertResponseDto;
 import com.everyplaceinkorea.epik_boot3_api.entity.common.DataSource;
 import com.everyplaceinkorea.epik_boot3_api.entity.concert.Concert;
+import com.everyplaceinkorea.epik_boot3_api.image.service.ImageCacheService;
 import com.everyplaceinkorea.epik_boot3_api.repository.concert.ConcertRepository;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -21,6 +23,7 @@ public class DefaultConcertService implements ConcertService {
 
     private final ConcertRepository concertRepository;
     private final ModelMapper modelMapper;
+    private final ImageCacheService imageCacheService;
 
     @Override
     public List<ConcertResponseDto> getConcertsByRegion(Long regionId, Integer page) {
@@ -97,9 +100,6 @@ public class DefaultConcertService implements ConcertService {
       dto.setPerformanceStatus("진행중");
     }
 
-    // 데이터 소스 설정
-    dto.setDataSource(concert.getDataSource());
-
     // 장르 정보 설정
     dto.setGenreName(concert.getKopisGenrenm());
 
@@ -108,7 +108,11 @@ public class DefaultConcertService implements ConcertService {
 
     // 이미지 처리: KOPIS API 데이터인 경우 원본 포스터 URL 사용
     if(concert.getDataSource() == DataSource.KOPIS_API) {
-      dto.setImageUrl(concert.getKopisPoster());
+      String cachedPosterUrl = imageCacheService.getOrCacheImage(
+              concert.getKopisPoster(),
+              concert.getId().toString()
+      );
+      dto.setImageUrl(cachedPosterUrl);
     }
 
     // 모든 경우에 파일명 설정

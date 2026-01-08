@@ -1,10 +1,14 @@
 package com.everyplaceinkorea.epik_boot3_api.config;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.io.File;
+
+@Slf4j
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
@@ -18,18 +22,17 @@ public class WebConfig implements WebMvcConfigurer {
 //            .allowCredentials(true); // 필요에 따라 설정
 //  }
 
-
-  /*
-  * 기본 리소스 위치에 새로운 경로 추가해주기
-  */
   @Override
   public void addResourceHandlers(ResourceHandlerRegistry registry) {
+    // 현재 실행 디렉토리의 절대 경로
+    String currentPath = System.getProperty("user.dir");
+
     registry.addResourceHandler("/uploads/**") // 해당 경로 요청이 오면
-            .addResourceLocations("file:uploads/"); // 지정한 경로에서 제공
+            .addResourceLocations("file:" + currentPath + "/uploads/"); // 지정한 경로에서 제공
 
-    // 2. 추가 /api/v1/uploads/** 매핑
-    registry.addResourceHandler("/api/v1/uploads/**")
-            .addResourceLocations("file:uploads/");
-
+    // KOPIS 캐시 디렉토리 매핑
+    registry.addResourceHandler("/cache/kopis/**")
+            .addResourceLocations("file:" + currentPath + "/uploads/cache/kopis/")
+            .setCachePeriod(2592000);
   }
 }
