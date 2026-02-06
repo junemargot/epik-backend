@@ -11,6 +11,8 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Getter
@@ -50,7 +52,12 @@ public class Inquiry {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "answered_by")
-    private Member answeredBy; // 답변한 관리자
+    private Member answeredBy;
+
+    @OneToMany(mappedBy = "inquiry", fetch = FetchType.LAZY,
+                cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id ASC")
+    private List<InquiryImage> images = new ArrayList<>();
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -80,6 +87,30 @@ public class Inquiry {
                 .category(category)
                 .receiveEmailAnswer(receiveEmailAnswer)
                 .build();
+    }
+
+    public void addImage(InquiryImage image) {
+        if(image == null) return;
+        if(this.images.size() >= 8) {
+            throw new IllegalStateException("이미지는 최대 8까지 등록 가능합니다.");
+        }
+        this.images.add(image);
+
+        if(image.getInquiry() != this) {
+            image.assignToInquiry(this);
+        }
+    }
+
+    public void removeImage(InquiryImage image) {
+        this.images.remove(image);
+    }
+
+    public void clearImages() {
+        this.images.clear();
+    }
+
+    public int getImageCount() {
+        return this.images.size();
     }
 
     // 비즈니스 메서드 1: 답변 등록
