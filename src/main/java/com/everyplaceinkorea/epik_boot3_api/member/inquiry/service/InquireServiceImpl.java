@@ -36,7 +36,7 @@ public class InquireServiceImpl implements InquiryService {
     private final InquiryImageRepository inquiryImageRepository;
     private final MemberRepository memberRepository;
 
-    private static final String UPLOAD_DIR = "upload/images/inquiry/";
+    private static final String UPLOAD_DIR = "uploads/images/inquiry/";
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
     private static final List<String> ALLOWED_EXTENSIONS = List.of("jpg", "jpeg", "png", "gif", "webp");
 
