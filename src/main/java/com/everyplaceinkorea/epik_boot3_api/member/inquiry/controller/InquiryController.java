@@ -1,5 +1,6 @@
 package com.everyplaceinkorea.epik_boot3_api.member.inquiry.controller;
 
+import com.everyplaceinkorea.epik_boot3_api.entity.inquiry.InquiryCategory;
 import com.everyplaceinkorea.epik_boot3_api.member.inquiry.dto.InquiryCreateRequestDto;
 import com.everyplaceinkorea.epik_boot3_api.member.inquiry.dto.InquiryDetailResponseDto;
 import com.everyplaceinkorea.epik_boot3_api.member.inquiry.dto.InquiryListResponseDto;
@@ -18,7 +19,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.springframework.web.bind.annotation.GetMapping;
+
 
 @Slf4j
 @RestController
@@ -53,7 +61,7 @@ public class InquiryController {
     public ResponseEntity<InquiryDetailResponseDto> getInquiryDetail(@PathVariable Long inquiryId) {
 
         Long memberId = SecurityUtil.getCurrentMemberId();
-        InquiryDetailResponseDto response = inquiryService.getInquiryDetail(memberId, inquiryId);
+        InquiryDetailResponseDto response = inquiryService.getInquiryDetail(inquiryId, memberId);
 
         return ResponseEntity.ok(response);
     }
@@ -97,10 +105,27 @@ public class InquiryController {
     public ResponseEntity<Void> deleteInquiry(@PathVariable Long inquiryId) {
 
         Long memberId = SecurityUtil.getCurrentMemberId();
-        inquiryService.deleteInquiry(memberId, inquiryId);
+        inquiryService.deleteInquiry(inquiryId, memberId);
 
         log.info("문의 삭제 - inquiryId: {}, memberId: {}", inquiryId, memberId);
 
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/categories")
+    public ResponseEntity<Map<String, List<Map<String, String>>>> getCategories() {
+        Map<String, List<Map<String, String>>> result = new LinkedHashMap<>();
+        
+        InquiryCategory.getCategoryMap().forEach((parent, categories) -> {
+            List<Map<String, String>> childList = categories.stream()
+                .map(cat -> Map.of(
+                    "enumName", cat.name(),
+                    "description", cat.getDescription()
+                ))
+                .collect(Collectors.toList());
+            result.put(parent, childList);
+        });
+        
+        return ResponseEntity.ok(result);
     }
 }
