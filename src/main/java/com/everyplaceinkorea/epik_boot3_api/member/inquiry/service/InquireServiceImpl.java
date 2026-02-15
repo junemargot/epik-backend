@@ -1,6 +1,7 @@
 package com.everyplaceinkorea.epik_boot3_api.member.inquiry.service;
 
 import com.everyplaceinkorea.epik_boot3_api.entity.inquiry.Inquiry;
+import com.everyplaceinkorea.epik_boot3_api.entity.inquiry.InquiryCategory;
 import com.everyplaceinkorea.epik_boot3_api.entity.inquiry.InquiryImage;
 import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.member.inquiry.dto.InquiryCreateRequestDto;
@@ -25,6 +26,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -115,16 +117,33 @@ public class InquireServiceImpl implements InquiryService {
         // 2. 내용 수정 (답변 완료 시 예외 발생)
         inquiry.updateContent(request.getTitle(), request.getContent());
 
-        // 3. 이미지 처리 (선택사항)
-        if (newImages != null && !newImages.isEmpty()) {
-            // 기존 이미지 삭제
-            deleteExistingImages(inquiry);
+        // 3. 카테고리 수정
+        if(request.getCategory() != null) {
+            inquiry.updateCategory(InquiryCategory.valueOf(request.getCategory()));
+        }
 
+        // 4. 이미지 처리
+        List<Long> keepIds = request.getKeepImageIds() != null ? request.getKeepImageIds() : List.of();
+        List<InquiryImage> imagesToRemove = inquiry.getImages().stream()
+                .filter(img -> !keepIds.contains(img.getId()))
+                .collect(Collectors.toList());
+
+        for(InquiryImage img : imagesToRemove) {
+            try {
+                Path filePath = Paths.get(UPLOAD_DIR + img.getImageSavedName());
+                Files.deleteIfExists(filePath);
+            } catch (IOException e) {
+                log.error("이미지 파일 삭제 실패 - {}", img.getImageSavedName(), e);
+            }
+            inquiry.removeImage(img);
+        }
+
+        // 새 이미지 업로드
+        if (newImages != null && !newImages.isEmpty()) {
             // 새 이미지 업로드
             validateImages(newImages);
             for (MultipartFile image : newImages) {
                 String savedFileName = saveImage(image);
-
                 InquiryImage inquiryImage = InquiryImage.createImage(
                         savedFileName,
                         image.getOriginalFilename(),

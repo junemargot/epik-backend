@@ -15,6 +15,12 @@ public class InquiryDetailResponseDto {
     private String parentCategory;
     private String categoryDescription;
 
+    // 문의 제목
+    private String title;
+
+    // 문의 유형
+    private String category;
+
     // 문의 내용
     private String content;
 
@@ -28,6 +34,8 @@ public class InquiryDetailResponseDto {
         return InquiryDetailResponseDto.builder()
                 .parentCategory(inquiry.getCategory().getParentCategory())
                 .categoryDescription(inquiry.getCategory().getDescription())
+                .title(inquiry.getTitle())
+                .category(inquiry.getCategory().name())
                 .content(inquiry.getContent())
                 .images(inquiry.getImages().stream()
                         .map(InquiryImageDto::from)

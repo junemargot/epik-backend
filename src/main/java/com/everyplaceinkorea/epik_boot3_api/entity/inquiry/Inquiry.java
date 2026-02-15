@@ -103,6 +103,7 @@ public class Inquiry {
 
     public void removeImage(InquiryImage image) {
         this.images.remove(image);
+        image.assignToInquiry(null);
     }
 
     public void clearImages() {
@@ -142,5 +143,9 @@ public class Inquiry {
 
     public boolean canModify() {
         return this.status == InquiryStatus.PENDING;
+    }
+
+    public void updateCategory(InquiryCategory category) {
+        this.category = category;
     }
 }

@@ -1,5 +1,7 @@
 package com.everyplaceinkorea.epik_boot3_api.member.inquiry.dto;
 
+import java.util.List;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -19,6 +21,7 @@ public class InquiryUpdateRequestDto {
     @Size(max = 5000, message = "문의 내용은 5000자를 초과할 수 없습니다.")
     private String content;
 
-    // 이미지 수정 방식 선택 (선택사항)
-    private boolean keepExistingImages = false; // true면 기존 이미지 유지
+    private String category;
+
+    private List<Long> keepImageIds;
 }
