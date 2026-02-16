@@ -45,3 +45,4 @@ mvnw.cmd
 pom.xml
 /src/main/resources/application.yml
 /uploads/
+test-cache-performance.sh
