@@ -11,7 +11,7 @@ on:
 
 jobs:
   review:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.base_ref == 'dev'
     runs-on: ubuntu-latest
     permissions:
       contents: read
