@@ -27,7 +27,7 @@ public class InquiryDetailResponseDto {
 
   private String writer;
 
-  @JsonFormat(pattern = "yyyy.MM.dd HH.mm")
+  @JsonFormat(pattern = "yyyy.MM.dd HH:mm")
   private LocalDateTime createdAt;
 
   private InquiryStatus status;

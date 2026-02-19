@@ -12,6 +12,7 @@ import com.everyplaceinkorea.epik_boot3_api.entity.member.Member;
 import com.everyplaceinkorea.epik_boot3_api.repository.Member.MemberRepository;
 import com.everyplaceinkorea.epik_boot3_api.repository.inquiry.InquiryRepository;
 
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,7 +34,7 @@ public class InquiryServiceImpl implements InquiryService{
   @Override
   public InquiryDetailResponseDto getInquiryDetail(Long inquiryId) {
     Inquiry inquiry = inquiryRepository.findById(inquiryId)
-            .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 문의입니다."));
+            .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 문의입니다."));
     return InquiryDetailResponseDto.from(inquiry);
   }
 
@@ -41,7 +42,7 @@ public class InquiryServiceImpl implements InquiryService{
   @Transactional
   public void answerInquiry(Long inquiryId, String answer, Long adminId) {
     Inquiry inquiry = inquiryRepository.findById(inquiryId)
-              .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 문의입니다."));
+              .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 문의입니다."));
     
     Member admin = memberRepository.findById(adminId)
               .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
