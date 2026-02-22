@@ -18,6 +18,7 @@ public class InquiryCreateRequestDto {
     private String title;
 
     @NotBlank(message = "문의 내용을 입력해주세요.")
+    @Size(max = 5000, message = "문의 내용은 5000자를 초과할 수 없습니다.")
     private String content;
 
     @NotNull(message = "문의 유형을 선택해주세요.")

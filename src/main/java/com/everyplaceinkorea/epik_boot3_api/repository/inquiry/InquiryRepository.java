@@ -14,6 +14,9 @@ public interface InquiryRepository extends JpaRepository<Inquiry, Long> {
     // 내 문의 목록 조회 (작성일 최신순)
     Page<Inquiry> findByWriterIdOrderByCreatedAtDesc(Long writerId, Pageable pageable);
 
+    @Query("SELECT i FROM Inquiry i LEFT JOIN FETCH i.images WHERE i.writer.id = :writerId ORDER BY i.createdAt DESC")
+    Page<Inquiry> findByWriterIdWithImagesOrderByCreatedAtDesc(@Param("writerId") Long writerId, Pageable pageable);
+
     // 문의 상세 조회 with 이미지 (N+1 방지)
     @Query("SELECT i FROM Inquiry i " +
             "LEFT JOIN FETCH i.images " +
