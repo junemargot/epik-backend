@@ -46,7 +46,7 @@ public class InquiryController {
     return ResponseEntity.ok(response);
   }
 
-  @PreAuthorize("hasRole('ADMIN')")
+  // @PreAuthorize("hasRole('ADMIN')")
   @PostMapping("/{inquiryId}/answer")
   public ResponseEntity<Void> answerInquiry(@PathVariable Long inquiryId, @Valid @RequestBody InquiryAnswerRequestDto request) {
     Long adminId = SecurityUtil.getCurrentMemberId();

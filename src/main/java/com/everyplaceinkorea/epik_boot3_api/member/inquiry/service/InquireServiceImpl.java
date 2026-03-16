@@ -84,7 +84,7 @@ public class InquireServiceImpl implements InquiryService {
 
     @Override
     public Page<InquiryListResponseDto> getMyInquiries(Long memberId, Pageable pageable) {
-        Page<Inquiry> inquiryPage = inquiryRepository.findByWriterIdOrderByCreatedAtDesc(memberId, pageable);
+        Page<Inquiry> inquiryPage = inquiryRepository.findByWriterIdWithImagesOrderByCreatedAtDesc(memberId, pageable);
         return inquiryPage.map(InquiryListResponseDto::from);
     }
 
@@ -118,8 +118,11 @@ public class InquireServiceImpl implements InquiryService {
         inquiry.updateContent(request.getTitle(), request.getContent());
 
         // 3. 카테고리 수정
-        if(request.getCategory() != null) {
-            inquiry.updateCategory(InquiryCategory.valueOf(request.getCategory()));
+        try {
+            InquiryCategory category = InquiryCategory.valueOf(request.getCategory());
+            inquiry.updateCategory(category);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("유효하지 않은 카테고리입니다: " + request.getCategory());
         }
 
         // 4. 이미지 처리
@@ -192,7 +195,13 @@ public class InquireServiceImpl implements InquiryService {
                 throw new IllegalStateException("파일명이 유효하지 않습니다.");
             }
 
+            int dotIndex = originalFilename.lastIndexOf(".");
+            if(dotIndex == -1 || dotIndex == originalFilename.length() - 1) {
+                throw new IllegalStateException("파일 확장자가 없습니다.");
+            }
+
             String extension = originalFilename.substring(originalFilename.lastIndexOf(".") + 1).toLowerCase();
+
             if(!ALLOWED_EXTENSIONS.contains(extension)) {
                 throw new IllegalStateException("허용되지 않는 이미지 형식입니다. (jpg, jpeg, png, gif, webp만 가능)");
             }
