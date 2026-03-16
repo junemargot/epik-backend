@@ -72,7 +72,7 @@ public class KopisDataSyncService {
                 int beforeCount = result.getSuccessCount(); // 해당 장르 처리 전 성공 건수
 
                 try {
-                    syncByGenrePaginated(
+                    syncByGenreInChunks(
                             genreCode, startDate, endDate, systemMember, defaultRegion, result, "CONCERT");
 
                 } catch (Exception e) {
@@ -136,7 +136,7 @@ public class KopisDataSyncService {
             log.info("뮤지컬 장르 {} 조회 시작 - {}", genreCode, genreName);
 
             try {
-                syncByGenrePaginated(
+                syncByGenreInChunks(
                         genreCode, startDate, endDate, systemMember, defaultRegion, result, "MUSICAL");
 
             } catch (Exception e) {
@@ -161,6 +161,57 @@ public class KopisDataSyncService {
             result.complete();
             return result;
         }
+    }
+
+    /**
+     * KOPIS API의 단일 요청 최대 허용 기간(31일) 제한을 준수하기 위해
+     * 전체 기간을 청크(Chunk) 단위로 분할하여 동기화 작업을 수행
+     * 
+     * @param genreCode KOPIS 장르 코드
+     * @param startDate 전체 동기화 시작일
+     * @param endDate 전체 동기화 종료일
+     * @param systemMember 등록자 (시스템 계정)
+     * @param defaultRegion 기본 지역 정보
+     * @param result 결과 통계를 담을 객체
+     * @param syncType 동기화 타입 (CONCERT/MUSICAL)
+     */
+    private void syncByGenreInChunks(
+        String genreCode, String startDate, String endDate,
+        Member systemMember, Region defaultRegion, SyncResult result, String syncType) {
+
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
+            LocalDate start = LocalDate.parse(startDate, formatter);
+            LocalDate end = LocalDate.parse(endDate, formatter);
+
+            LocalDate chunkStart = start;
+            int chunkIndex = 1;
+
+            while(!chunkStart.isAfter(end)) {
+                LocalDate chunkEnd = chunkStart.plusDays(30);
+                if(chunkEnd.isAfter(end)) {
+                    chunkEnd = end;
+                }
+
+                String chunkStartStr = chunkStart.format(formatter);
+                String chunkEndStr = chunkEnd.format(formatter);
+
+                log.info("[{}] 장르 {} - 청크 {}: {} ~ {}",
+                            syncType, genreCode, chunkIndex, chunkStartStr, chunkEndStr);
+
+                try {
+                    syncByGenrePaginated(
+                        genreCode, chunkStartStr, chunkEndStr,
+                        systemMember, defaultRegion, result, syncType);
+                } catch (Exception e) {
+                    log.error("[{}] 장르 {} - 청크 {} 실패: {}",
+                            syncType, genreCode, chunkIndex, e.getMessage());
+                    result.addFailure(String.format("청크 %s~%s 실패: %s",
+                            chunkStartStr, chunkEndStr, e.getMessage()));
+                }
+    
+                chunkStart = chunkEnd.plusDays(1);
+                chunkIndex++;
+            }
     }
 
     private void syncByGenrePaginated(
