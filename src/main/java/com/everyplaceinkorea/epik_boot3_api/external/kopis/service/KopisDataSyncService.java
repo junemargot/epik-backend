@@ -262,6 +262,14 @@ public class KopisDataSyncService {
                                 }
                                 totalProcessedForGenre++;
 
+                                // KOPIS 서버 부하 방지 (상세 API 호출 포함)
+                                Thread.sleep(200);
+
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                log.warn("{} 동기화 인터럽트 발생, 중단", syncType);
+                                break;
+
                             } catch (Exception e) {
                                 log.error("개별 {} 처리 실패: ID={}, 오류={}",
                                         syncType, performance.getMt20id(), e.getMessage());
@@ -604,6 +612,8 @@ public class KopisDataSyncService {
             dto.setStyurls(extractXmlValue(xmlContent, "styurls"));
             dto.setPrfruntime(extractXmlValue(xmlContent, "prfruntime"));
             dto.setPrfage(extractXmlValue(xmlContent, "prfage"));
+            dto.setChild(extractXmlValue(xmlContent, "child"));
+            dto.setVisit(extractXmlValue(xmlContent, "visit"));
 
             return dto;
 
@@ -749,7 +759,14 @@ public class KopisDataSyncService {
             basicDto.setPrfage(removeEmojis(detailDto.getPrfage()));
         }
 
-        log.debug("상세 정보 병합 완료 - 총 12개 필드 처리");
+        if (isValidString(detailDto.getChild())) {
+            basicDto.setChild(detailDto.getChild());
+        }
+        if (isValidString(detailDto.getVisit())) {
+            basicDto.setVisit(detailDto.getVisit());
+        }
+
+        log.debug("상세 정보 병합 완료: {}", basicDto.getMt20id());
     }
 
     /**
