@@ -918,4 +918,105 @@ public class KopisDataSyncService {
 
         return null;
     }
+
+    /**
+     * 기존 데이터의 child/visit 필드 마이그레이션
+     */
+    public SyncResult migrateChildVisitFields(String syncType) {
+        log.info("=== {} child / visit 마이그레이션 시작 ===", syncType);
+        SyncResult result = new SyncResult(syncType + "_MIGRATION");
+        LocalDate today = LocalDate.now();
+
+        try {
+            List<String> kopisIds;
+
+            if("CONCERT".equals(syncType)) {
+                kopisIds = concertRepository.findAll().stream()
+                        .filter(c -> c.getKopisId() != null 
+                                && c.getKopisChild() == null
+                                && c.getEndDate() != null
+                                && !c.getEndDate().isBefore(today))
+                        .map(c -> c.getKopisId())
+                        .toList();
+            } else {
+                kopisIds = musicalRepository.findAll().stream()
+                        .filter(m -> m.getKopisId() != null 
+                                && m.getKopisChild() == null
+                                && m.getEndDate() != null
+                                && !m.getEndDate().isBefore(today))
+                        .map(m -> m.getKopisId())
+                        .toList();
+            }
+
+            log.info("마이그레이션 대상: (활성 공연만): {}건", kopisIds.size());
+
+            for (String kopisId : kopisIds) {
+                try {
+                    // 최대 3회 재시도
+                    String detailXml = null;
+                    for (int retry = 0; retry < 3; retry++) {
+                        try {
+                            detailXml = kopisApiService.getPerformanceDetail(kopisId);
+                            break;
+                        } catch (Exception e) {
+                            log.warn("상세 조회 재시도 {}/3: {}", retry + 1, kopisId);
+                            Thread.sleep(1000);
+                        }
+                    }
+    
+                    if (detailXml == null) {
+                        result.addFailure("API 응답 없음: " + kopisId);
+                        continue;
+                    }
+    
+                    List<KopisPerformanceDto> detailList = parseXmlToPerformanceList(detailXml);
+                    if (detailList.isEmpty()) {
+                        result.addFailure("파싱 실패: " + kopisId);
+                        continue;
+                    }
+    
+                    KopisPerformanceDto detailDto = detailList.get(0);
+                    String child = detailDto.getChild();
+                    String visit = detailDto.getVisit();
+    
+                    if ("CONCERT".equals(syncType)) {
+                        concertRepository.findByKopisId(kopisId).ifPresent(concert -> {
+                            concert.setKopisChild(child != null ? child : "N");
+                            concert.setKopisVisit(visit != null ? visit : "N");
+                            concertRepository.save(concert);
+                        });
+                    } else {
+                        musicalRepository.findByKopisId(kopisId).ifPresent(musical -> {
+                            musical.setKopisChild(child != null ? child : "N");
+                            musical.setKopisVisit(visit != null ? visit : "N");
+                            musicalRepository.save(musical);
+                        });
+                    }
+    
+                    result.addSuccess(false);
+                    Thread.sleep(500);
+    
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                } catch (Exception e) {
+                    log.error("마이그레이션 실패: {}, 에러: {}", kopisId, e.getMessage());
+                    result.addFailure(kopisId + ":" + e.getMessage());
+                }
+            }
+    
+            result.complete();
+            log.info("=== {} 마이그레이션 완료: 성공 {}건, 실패 {}건, 소요 {}초 ===",
+                    syncType, result.getSuccessCount(), result.getFailureCount(),
+                    String.format("%.2f", result.getDurationMs() / 1000.0));
+    
+            return result;
+    
+        } catch (Exception e) {
+            log.error("마이그레이션 전체 실패: ", e);
+            result.addFailure("전체 실패: " + e.getMessage());
+            result.complete();
+            return result;
+        }
+    }
 }

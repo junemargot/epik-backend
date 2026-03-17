@@ -83,7 +83,7 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
         "ORDER BY c.startDate ASC")
     Page<Concert> findConcertsByGenre(@Param("genreName") String genreName, @Param("today") LocalDate today, Pageable pageable);
 
-    @Query("SELECT c FROM Concert c WHERE (:regionId IS NULL OR c.region.id = :regionId) AND c.endDate >= :endDate AND c.status = 'ACTIVE' ORDER BY c.id DESC")
+    @Query("SELECT c FROM Concert c WHERE (:regionId IS NULL OR c.region.id = :regionId) AND c.endDate >= :endDate AND c.status = 'ACTIVE' AND (c.kopisChild IS NULL OR c.kopisChild != 'Y') ORDER BY c.id DESC")
     List<Concert> findAllConcertsByRegion(@Param("regionId") Long regionId, @Param("endDate") LocalDate endDate);
 
     @Query("SELECT c FROM Concert c WHERE " +
