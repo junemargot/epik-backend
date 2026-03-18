@@ -1,5 +1,6 @@
 package com.everyplaceinkorea.epik_boot3_api.external.kopis.service;
 
+import com.everyplaceinkorea.epik_boot3_api.config.KopisApiConfig;
 import com.everyplaceinkorea.epik_boot3_api.entity.Facility;
 import com.everyplaceinkorea.epik_boot3_api.entity.Hall;
 import com.everyplaceinkorea.epik_boot3_api.entity.Region;
@@ -43,6 +44,9 @@ public class KopisDataSyncService {
     private final RegionRepository regionRepository;
     private final MemberRepository memberRepository;
     private final HallRepository hallRepository;
+    private final KopisApiConfig kopisApiConfig;
+
+    private static final int KOPIS_MAX_DATE_RANGE_DAYS = 30;
 
     public SyncResult syncConcerts() {
         LocalDate now = LocalDate.now();
@@ -72,7 +76,7 @@ public class KopisDataSyncService {
                 int beforeCount = result.getSuccessCount(); // 해당 장르 처리 전 성공 건수
 
                 try {
-                    syncByGenrePaginated(
+                    syncByGenreInChunks(
                             genreCode, startDate, endDate, systemMember, defaultRegion, result, "CONCERT");
 
                 } catch (Exception e) {
@@ -136,7 +140,7 @@ public class KopisDataSyncService {
             log.info("뮤지컬 장르 {} 조회 시작 - {}", genreCode, genreName);
 
             try {
-                syncByGenrePaginated(
+                syncByGenreInChunks(
                         genreCode, startDate, endDate, systemMember, defaultRegion, result, "MUSICAL");
 
             } catch (Exception e) {
@@ -161,6 +165,57 @@ public class KopisDataSyncService {
             result.complete();
             return result;
         }
+    }
+
+    /**
+     * KOPIS API의 단일 요청 최대 허용 기간(31일) 제한을 준수하기 위해
+     * 전체 기간을 청크(Chunk) 단위로 분할하여 동기화 작업을 수행
+     * 
+     * @param genreCode KOPIS 장르 코드
+     * @param startDate 전체 동기화 시작일
+     * @param endDate 전체 동기화 종료일
+     * @param systemMember 등록자 (시스템 계정)
+     * @param defaultRegion 기본 지역 정보
+     * @param result 결과 통계를 담을 객체
+     * @param syncType 동기화 타입 (CONCERT/MUSICAL)
+     */
+    private void syncByGenreInChunks(
+        String genreCode, String startDate, String endDate,
+        Member systemMember, Region defaultRegion, SyncResult result, String syncType) {
+
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMdd");
+            LocalDate start = LocalDate.parse(startDate, formatter);
+            LocalDate end = LocalDate.parse(endDate, formatter);
+
+            LocalDate chunkStart = start;
+            int chunkIndex = 1;
+
+            while(!chunkStart.isAfter(end)) {
+                LocalDate chunkEnd = chunkStart.plusDays(KOPIS_MAX_DATE_RANGE_DAYS);
+                if(chunkEnd.isAfter(end)) {
+                    chunkEnd = end;
+                }
+
+                String chunkStartStr = chunkStart.format(formatter);
+                String chunkEndStr = chunkEnd.format(formatter);
+
+                log.info("[{}] 장르 {} - 청크 {}: {} ~ {}",
+                            syncType, genreCode, chunkIndex, chunkStartStr, chunkEndStr);
+
+                try {
+                    syncByGenrePaginated(
+                        genreCode, chunkStartStr, chunkEndStr,
+                        systemMember, defaultRegion, result, syncType);
+                } catch (Exception e) {
+                    log.error("[{}] 장르 {} - 청크 {} 실패: {}",
+                            syncType, genreCode, chunkIndex, e.getMessage());
+                    result.addFailure(String.format("청크 %s~%s 실패: %s",
+                            chunkStartStr, chunkEndStr, e.getMessage()));
+                }
+    
+                chunkStart = chunkEnd.plusDays(1);
+                chunkIndex++;
+            }
     }
 
     private void syncByGenrePaginated(
@@ -211,6 +266,14 @@ public class KopisDataSyncService {
                                 }
                                 totalProcessedForGenre++;
 
+                                // KOPIS 서버 부하 방지 (상세 API 호출 포함)
+                                Thread.sleep(kopisApiConfig.getSync().getDetailDelayMs());
+
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                log.warn("{} 동기화 인터럽트 발생, 중단", syncType);
+                                break;
+
                             } catch (Exception e) {
                                 log.error("개별 {} 처리 실패: ID={}, 오류={}",
                                         syncType, performance.getMt20id(), e.getMessage());
@@ -231,7 +294,7 @@ public class KopisDataSyncService {
                 }
 
                 if(hasMoreData) {
-                    Thread.sleep(500);
+                    Thread.sleep(kopisApiConfig.getSync().getPageDelayMs());
                 }
             } catch (Exception e) {
                 log.error("{} 장르 {} - {}페이지 조회 실패: {}", syncType, genreCode, pageNum, e.getMessage());
@@ -339,7 +402,7 @@ public class KopisDataSyncService {
 
         } catch (DataIntegrityViolationException e) {
             log.warn("이미 다른 스레드에서 생성됨, 스킵: {} ({})", dto.getPrfnm(), dto.getMt20id());
-
+            result.addSkipped("중복 생성 스킵: " + dto.getMt20id());
         } catch (Exception e) {
             log.error("콘서트 생성 실패: KOPIS_ID={}, 오류={}", dto.getMt20id(), e.getMessage(), e);
             result.addFailure("콘서트 ID " + dto.getMt20id() + " 생성 실패: " + e.getMessage());
@@ -447,7 +510,7 @@ public class KopisDataSyncService {
 
         } catch (DataIntegrityViolationException e) {
             log.warn("이미 다른 스레드에서 생성됨: {} ({})", dto.getPrfnm(), dto.getMt20id());
-            
+            result.addSkipped("중복 생성 스킵: " + dto.getMt20id());
         } catch (Exception e) {
             log.error("뮤지컬 생성 실패: KOPIS_ID={}, 오류={}", dto.getMt20id(), e.getMessage(), e);
             result.addFailure("뮤지컬 ID " + dto.getMt20id() + " 생성 실패: " + e.getMessage());
@@ -553,6 +616,8 @@ public class KopisDataSyncService {
             dto.setStyurls(extractXmlValue(xmlContent, "styurls"));
             dto.setPrfruntime(extractXmlValue(xmlContent, "prfruntime"));
             dto.setPrfage(extractXmlValue(xmlContent, "prfage"));
+            dto.setChild(extractXmlValue(xmlContent, "child"));
+            dto.setVisit(extractXmlValue(xmlContent, "visit"));
 
             return dto;
 
@@ -698,7 +763,14 @@ public class KopisDataSyncService {
             basicDto.setPrfage(removeEmojis(detailDto.getPrfage()));
         }
 
-        log.debug("상세 정보 병합 완료 - 총 12개 필드 처리");
+        if (isValidString(detailDto.getChild())) {
+            basicDto.setChild(detailDto.getChild());
+        }
+        if (isValidString(detailDto.getVisit())) {
+            basicDto.setVisit(detailDto.getVisit());
+        }
+
+        log.debug("상세 정보 병합 완료: {}", basicDto.getMt20id());
     }
 
     /**
@@ -849,5 +921,108 @@ public class KopisDataSyncService {
         }
 
         return null;
+    }
+
+    /**
+     * 기존 데이터의 child/visit 필드 마이그레이션
+     * - 개별 건 단위로 저장되므로 별도 @Transactional 불필요
+     * - 한 건 실패 시 나머지에 영향 없음 (에러 격리)
+     */
+    public SyncResult migrateChildVisitFields(String syncType) {
+        log.info("=== {} child / visit 마이그레이션 시작 ===", syncType);
+        SyncResult result = new SyncResult(syncType + "_MIGRATION");
+        LocalDate today = LocalDate.now();
+
+        try {
+            List<String> kopisIds;
+
+            if("CONCERT".equals(syncType)) {
+                kopisIds = concertRepository.findAll().stream()
+                        .filter(c -> c.getKopisId() != null 
+                                && c.getKopisChild() == null
+                                && c.getEndDate() != null
+                                && !c.getEndDate().isBefore(today))
+                        .map(c -> c.getKopisId())
+                        .toList();
+            } else {
+                kopisIds = musicalRepository.findAll().stream()
+                        .filter(m -> m.getKopisId() != null 
+                                && m.getKopisChild() == null
+                                && m.getEndDate() != null
+                                && !m.getEndDate().isBefore(today))
+                        .map(m -> m.getKopisId())
+                        .toList();
+            }
+
+            log.info("마이그레이션 대상: (활성 공연만): {}건", kopisIds.size());
+
+            for (String kopisId : kopisIds) {
+                try {
+                    // 최대 3회 재시도
+                    String detailXml = null;
+                    for (int retry = 0; retry < 3; retry++) {
+                        try {
+                            detailXml = kopisApiService.getPerformanceDetail(kopisId);
+                            break;
+                        } catch (Exception e) {
+                            log.warn("상세 조회 재시도 {}/3: {}", retry + 1, kopisId);
+                            Thread.sleep(kopisApiConfig.getSync().getRetryDelayMs());
+                        }
+                    }
+    
+                    if (detailXml == null) {
+                        result.addFailure("API 응답 없음: " + kopisId);
+                        continue;
+                    }
+    
+                    List<KopisPerformanceDto> detailList = parseXmlToPerformanceList(detailXml);
+                    if (detailList.isEmpty()) {
+                        result.addFailure("파싱 실패: " + kopisId);
+                        continue;
+                    }
+    
+                    KopisPerformanceDto detailDto = detailList.get(0);
+                    String child = detailDto.getChild();
+                    String visit = detailDto.getVisit();
+    
+                    if ("CONCERT".equals(syncType)) {
+                        concertRepository.findByKopisId(kopisId).ifPresent(concert -> {
+                            concert.setKopisChild(child != null ? child : "N");
+                            concert.setKopisVisit(visit != null ? visit : "N");
+                            concertRepository.save(concert);
+                        });
+                    } else {
+                        musicalRepository.findByKopisId(kopisId).ifPresent(musical -> {
+                            musical.setKopisChild(child != null ? child : "N");
+                            musical.setKopisVisit(visit != null ? visit : "N");
+                            musicalRepository.save(musical);
+                        });
+                    }
+    
+                    result.addSuccess(false);
+                    Thread.sleep(kopisApiConfig.getSync().getMigrationDelayMs());
+    
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                } catch (Exception e) {
+                    log.error("마이그레이션 실패: {}, 에러: {}", kopisId, e.getMessage());
+                    result.addFailure(kopisId + ":" + e.getMessage());
+                }
+            }
+    
+            result.complete();
+            log.info("=== {} 마이그레이션 완료: 성공 {}건, 실패 {}건, 소요 {}초 ===",
+                    syncType, result.getSuccessCount(), result.getFailureCount(),
+                    String.format("%.2f", result.getDurationMs() / 1000.0));
+    
+            return result;
+    
+        } catch (Exception e) {
+            log.error("마이그레이션 전체 실패: ", e);
+            result.addFailure("전체 실패: " + e.getMessage());
+            result.complete();
+            return result;
+        }
     }
 }

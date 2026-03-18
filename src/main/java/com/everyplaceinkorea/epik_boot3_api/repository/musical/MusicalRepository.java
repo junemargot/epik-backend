@@ -60,14 +60,14 @@ public interface MusicalRepository extends JpaRepository<Musical, Long> {
 //            @Param("status") Status status,
 //            Pageable pageable);
 
-    @Query("SELECT m FROM Musical m WHERE (:regionId IS NULL OR m.region.id = :regionId) AND m.endDate >= :endDate AND m.status = 'ACTIVE'")
+    @Query("SELECT m FROM Musical m WHERE (:regionId IS NULL OR m.region.id = :regionId) AND m.endDate >= :endDate AND m.status = 'ACTIVE' AND (m.kopisChild IS NULL OR m.kopisChild != 'Y')")
     Page<Musical> findMusicalsByRegion(@Param("regionId") Long regionId, @Param("endDate") LocalDate endDate, Pageable pageable);
 
     // 랜덤이미지조회 - 모두 nativeQuery로 통일
     @Query(value = "SELECT * FROM musical ORDER BY RAND() LIMIT 10", nativeQuery = true)
     List<Musical> findMusicalByRandom();
 
-    @Query(value = "SELECT * FROM musical WHERE end_date >= :today ORDER BY RAND() LIMIT 10", nativeQuery = true)
+    @Query(value = "SELECT * FROM musical WHERE end_date >= :today AND (kopis_child IS NULL OR kopis_child != 'Y') ORDER BY RAND() LIMIT 10", nativeQuery = true)
     List<Musical> findActiveMusicalByRandom(@Param("today") LocalDate today);
 
     // KOPIS 관련 메서드 추가

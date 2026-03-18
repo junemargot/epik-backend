@@ -103,6 +103,12 @@ public class Musical {
     @Column(name = "kopis_poster")
     private String kopisPoster;
 
+    @Column(name = "kopis_child")
+    private String kopisChild;
+
+    @Column(name = "kopis_visit")
+    private String kopisVisit;
+
     @Column(name = "kopis_pcseguidance", columnDefinition = "TEXT")
     private String kopisPcseguidance; // 티켓가격
 
@@ -195,6 +201,8 @@ public class Musical {
         this.kopisPrfstate = dto.getPrfstate();
         this.kopisArea = dto.getArea();
         this.kopisPoster = dto.getPoster();
+        this.kopisChild = dto.getChild();
+        this.kopisVisit = dto.getVisit();
 
         this.setRunningTime(determineRunningTime(dto));
         this.setAgeRestriction(dto.getPrfage());
@@ -314,6 +322,8 @@ public class Musical {
         musical.setAgeRestriction(dto.getPrfage());
         musical.setKopisArea(dto.getArea());
         musical.setKopisPoster(dto.getPoster());
+        musical.setKopisChild(dto.getChild());
+        musical.setKopisVisit(dto.getVisit());
 
         log.debug("KOPIS 원본 데이터 설정 완료: ID=[{}]", dto.getMt20id());
     }
