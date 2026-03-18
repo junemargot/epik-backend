@@ -402,7 +402,7 @@ public class KopisDataSyncService {
 
         } catch (DataIntegrityViolationException e) {
             log.warn("이미 다른 스레드에서 생성됨, 스킵: {} ({})", dto.getPrfnm(), dto.getMt20id());
-
+            result.addSkipped("중복 생성 스킵: " + dto.getMt20id());
         } catch (Exception e) {
             log.error("콘서트 생성 실패: KOPIS_ID={}, 오류={}", dto.getMt20id(), e.getMessage(), e);
             result.addFailure("콘서트 ID " + dto.getMt20id() + " 생성 실패: " + e.getMessage());
@@ -510,7 +510,7 @@ public class KopisDataSyncService {
 
         } catch (DataIntegrityViolationException e) {
             log.warn("이미 다른 스레드에서 생성됨: {} ({})", dto.getPrfnm(), dto.getMt20id());
-            
+            result.addSkipped("중복 생성 스킵: " + dto.getMt20id());
         } catch (Exception e) {
             log.error("뮤지컬 생성 실패: KOPIS_ID={}, 오류={}", dto.getMt20id(), e.getMessage(), e);
             result.addFailure("뮤지컬 ID " + dto.getMt20id() + " 생성 실패: " + e.getMessage());
@@ -925,6 +925,8 @@ public class KopisDataSyncService {
 
     /**
      * 기존 데이터의 child/visit 필드 마이그레이션
+     * - 개별 건 단위로 저장되므로 별도 @Transactional 불필요
+     * - 한 건 실패 시 나머지에 영향 없음 (에러 격리)
      */
     public SyncResult migrateChildVisitFields(String syncType) {
         log.info("=== {} child / visit 마이그레이션 시작 ===", syncType);
