@@ -1,5 +1,6 @@
 package com.everyplaceinkorea.epik_boot3_api.external.kopis.service;
 
+import com.everyplaceinkorea.epik_boot3_api.config.KopisApiConfig;
 import com.everyplaceinkorea.epik_boot3_api.entity.Facility;
 import com.everyplaceinkorea.epik_boot3_api.entity.Hall;
 import com.everyplaceinkorea.epik_boot3_api.entity.Region;
@@ -43,6 +44,9 @@ public class KopisDataSyncService {
     private final RegionRepository regionRepository;
     private final MemberRepository memberRepository;
     private final HallRepository hallRepository;
+    private final KopisApiConfig kopisApiConfig;
+
+    private static final int KOPIS_MAX_DATE_RANGE_DAYS = 30;
 
     public SyncResult syncConcerts() {
         LocalDate now = LocalDate.now();
@@ -187,7 +191,7 @@ public class KopisDataSyncService {
             int chunkIndex = 1;
 
             while(!chunkStart.isAfter(end)) {
-                LocalDate chunkEnd = chunkStart.plusDays(30);
+                LocalDate chunkEnd = chunkStart.plusDays(KOPIS_MAX_DATE_RANGE_DAYS);
                 if(chunkEnd.isAfter(end)) {
                     chunkEnd = end;
                 }
@@ -263,7 +267,7 @@ public class KopisDataSyncService {
                                 totalProcessedForGenre++;
 
                                 // KOPIS 서버 부하 방지 (상세 API 호출 포함)
-                                Thread.sleep(200);
+                                Thread.sleep(kopisApiConfig.getSync().getDetailDelayMs());
 
                             } catch (InterruptedException e) {
                                 Thread.currentThread().interrupt();
@@ -290,7 +294,7 @@ public class KopisDataSyncService {
                 }
 
                 if(hasMoreData) {
-                    Thread.sleep(500);
+                    Thread.sleep(kopisApiConfig.getSync().getPageDelayMs());
                 }
             } catch (Exception e) {
                 log.error("{} 장르 {} - {}페이지 조회 실패: {}", syncType, genreCode, pageNum, e.getMessage());
@@ -960,7 +964,7 @@ public class KopisDataSyncService {
                             break;
                         } catch (Exception e) {
                             log.warn("상세 조회 재시도 {}/3: {}", retry + 1, kopisId);
-                            Thread.sleep(1000);
+                            Thread.sleep(kopisApiConfig.getSync().getRetryDelayMs());
                         }
                     }
     
@@ -994,7 +998,7 @@ public class KopisDataSyncService {
                     }
     
                     result.addSuccess(false);
-                    Thread.sleep(500);
+                    Thread.sleep(kopisApiConfig.getSync().getMigrationDelayMs());
     
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
