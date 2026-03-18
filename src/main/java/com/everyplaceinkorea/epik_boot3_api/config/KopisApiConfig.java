@@ -43,6 +43,10 @@ public class KopisApiConfig {
     public static class Sync {
         private boolean enabled;
         private String cron;
+        private long detailDelayMs = 500;
+        private long pageDelayMs = 500;
+        private long migrationDelayMs = 500;
+        private long retryDelayMs = 1000;
         
         public boolean isEnabled() {
             return enabled;
@@ -58,6 +62,38 @@ public class KopisApiConfig {
         
         public void setCron(String cron) {
             this.cron = cron;
+        }
+
+        public long getDetailDelayMs() {
+            return detailDelayMs;
+        }
+    
+        public void setDetailDelayMs(long detailDelayMs) {
+            this.detailDelayMs = detailDelayMs;
+        }
+    
+        public long getPageDelayMs() {
+            return pageDelayMs;
+        }
+    
+        public void setPageDelayMs(long pageDelayMs) {
+            this.pageDelayMs = pageDelayMs;
+        }
+    
+        public long getMigrationDelayMs() {
+            return migrationDelayMs;
+        }
+    
+        public void setMigrationDelayMs(long migrationDelayMs) {
+            this.migrationDelayMs = migrationDelayMs;
+        }
+    
+        public long getRetryDelayMs() {
+            return retryDelayMs;
+        }
+    
+        public void setRetryDelayMs(long retryDelayMs) {
+            this.retryDelayMs = retryDelayMs;
         }
     }
     

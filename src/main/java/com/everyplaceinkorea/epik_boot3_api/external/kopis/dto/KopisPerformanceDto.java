@@ -22,4 +22,6 @@ public class KopisPerformanceDto {
   private String styurls;        // 소개이미지목록
   private String prfruntime;     // 런타임
   private String prfage;         // 관람연령
+  private String child;          // 아동 공연 여부 (Y/N)
+  private String visit;          // 내한 공연 여부 (Y/N)
 }

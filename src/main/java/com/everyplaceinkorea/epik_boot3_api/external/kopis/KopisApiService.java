@@ -35,46 +35,26 @@ public class KopisApiService {
         try {
             log.info("KOPIS API 호출 시작");
             log.info("파라미터 - stDate: {}, edDate: {}, cPage: {}, rows: {}", stDate, edDate, cPage, rows);
-            log.info("API KEY: {}", kopisApiConfig.getApi().getKey());
-            log.info("Base URL: {}", kopisApiConfig.getApi().getBaseUrl());
 
-            String finalUrl = webClient.get()
-                    .uri(uriBuilder -> {
-                        String builtUri = uriBuilder
-                                .path("/pblprfr")
-                                .queryParam("service", kopisApiConfig.getApi().getKey())
-                                .queryParam("stdate", stDate)
-                                .queryParam("eddate", edDate)
-                                .queryParam("cpage", cPage)
-                                .queryParam("rows", rows)
-                                .build().toString();
-                                log.info("최종 요청 URL: {}", builtUri);
-                                return uriBuilder
-                                    .path("/pblprfr")
-                                    .queryParam("service", kopisApiConfig.getApi().getKey())
-                                    .queryParam("stdate", stDate)
-                                    .queryParam("eddate", edDate)
-                                    .queryParam("cpage", cPage)
-                                    .queryParam("rows", rows)
-                                    .build();
-                    })
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .timeout(Duration.ofMillis(kopisApiConfig.getApi().getTimeout()))
-                    .block();
+            String response = webClient.get()
+                      .uri(uriBuilder -> uriBuilder
+                        .path("/pblprfr")
+                        .queryParam("service", kopisApiConfig.getApi().getKey())
+                        .queryParam("stdate", stDate)
+                        .queryParam("eddate", edDate)
+                        .queryParam("cpage", cPage)
+                        .queryParam("rows", rows)
+                        .build())
+                      .retrieve()
+                      .bodyToMono(String.class)
+                      .timeout(Duration.ofMillis(kopisApiConfig.getApi().getTimeout()))
+                      .block();
 
-                    log.info("=== KOPIS API 응답 받음 ===");
-                    log.info("응답 null 여부: {}", finalUrl == null);
-                    log.info("응답 길이: {}", finalUrl != null ? finalUrl.length() : 0);
-
-                    if (finalUrl != null && !finalUrl.isEmpty()) {
-                        log.info("응답 시작 부분 (200자): {}",
-                                finalUrl.length() > 200 ? finalUrl.substring(0, 200) : finalUrl);
-                    }
-                    return finalUrl;
+            log.info("KOPIS API 응답 길이: {}", response != null ? response.length() : 0);
+            return response;
 
         } catch(Exception e) {
-            log.error("KOPIS API 호출 실패 상세: {}", e.getMessage(), e);
+            log.error("KOPIS API 호출 실패: {}", e.getMessage(), e);
             throw new RuntimeException("KOPIS API 호출 실패:", e);
         }
     }

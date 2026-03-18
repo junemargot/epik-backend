@@ -18,6 +18,9 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+
 
 @Slf4j
 @RestController
@@ -278,4 +281,30 @@ public class KopisAdminController {
             return ResponseEntity.internalServerError().body(response);
         }
     }
+
+    /**
+     * 기존 데이터 child/visit 필드 마이그레이션 (일회성)
+     */
+    @PostMapping("/migrate/child-visit/{syncType}")
+    public ResponseEntity<Map<String, Object>> migrateChildVisit(@PathVariable String syncType) {
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            log.info("관리자 요청: {} child/visit 마이그레이션", syncType);
+            SyncResult result = syncService.migrateChildVisitFields(syncType.toUpperCase());
+
+            response.put("success", true);
+            response.put("message", syncType + " child/visit 마이그레이션 완료");
+            response.put("result", result);
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("마이그레이션 실패: {}", e.getMessage());
+            response.put("success", false);
+            response.put("message", "마이그레이션 실패: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+    
 }
