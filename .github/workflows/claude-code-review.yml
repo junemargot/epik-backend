@@ -3,8 +3,6 @@ name: Claude Code Review
 on:
   pull_request:
     types: [opened, synchronize]
-    # paths:
-    #  - "src/**/*.java"
 
   issue_comment:
     types: [created]
@@ -31,9 +29,16 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           direct_prompt: |
-            **Crucially, ignore all previous review comments and discussions in this pull request.** Your task is to review the code **solely based on the latest cumulative changes (diff)** between the current PR branch and the base branch. 
-                        Focus on code quality and best practices, potential bugs or issues, and adherence to project standards and performance considerations. Suggest specific improvements and provide a detailed explanation.
-            **The review results must be written in Korean.**
+            You are reviewing a pull request. Read ALL existing review comments on this PR first.
+
+            CRITICAL RULES:
+            1. If a previous review comment pointed out an issue and the current code has ALREADY FIXED it, do NOT mention it again. Simply note "이전 피드백 반영 확인" at the top.
+            2. Only report NEW issues that have not been mentioned in any previous review comment.
+            3. If all previous issues are resolved and no new issues exist, respond with:
+               "### ✅ 리뷰 완료\n이전 피드백이 모두 반영되었습니다. 추가 코멘트 없음."
+
+            Review focus: code quality, potential bugs, performance, and project standards.
+            **리뷰 결과는 한국어로 작성해주세요.**
 
           use_sticky_comment: false
 
