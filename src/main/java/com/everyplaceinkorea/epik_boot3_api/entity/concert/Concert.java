@@ -127,6 +127,9 @@ public class Concert {
   @Column(name = "kopis_ticket_offices_updated_at")
   private LocalDateTime kopisTicketOfficesUpdatedAt;
 
+  @Column(name = "kopis_ticket_scrape_fail_count")
+  private Integer kopisTicketScrapeFailCount = 0;
+
   @Enumerated(EnumType.STRING)
   @Column(name = "kopis_ticket_offices_source")
   private TicketOfficeSource kopisTicketOfficesSource = TicketOfficeSource.MANUAL;

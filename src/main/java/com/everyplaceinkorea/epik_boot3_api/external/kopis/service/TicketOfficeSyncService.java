@@ -4,6 +4,7 @@ import com.everyplaceinkorea.epik_boot3_api.entity.concert.Concert;
 import com.everyplaceinkorea.epik_boot3_api.entity.concert.ConcertTicketOffice;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.Musical;
 import com.everyplaceinkorea.epik_boot3_api.entity.musical.MusicalTicketOffice;
+import com.everyplaceinkorea.epik_boot3_api.external.kopis.config.ScrapingProperties;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.MigrationResult;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.dto.TicketOfficeScrapeResult;
 import com.everyplaceinkorea.epik_boot3_api.external.kopis.enums.TicketOfficeSource;
@@ -35,6 +36,7 @@ import java.util.*;
 @Slf4j
 public class TicketOfficeSyncService {
 
+  private final ScrapingProperties scrapingProperties;
   private final KopisWebScraperService scraperService;
   private final MusicalRepository musicalRepository;
   private final ConcertRepository concertRepository;
@@ -67,12 +69,8 @@ public class TicketOfficeSyncService {
 
     try {
       // 1. 스크래핑으로 예매처 정보 수집
-      List<TicketOfficeScrapeResult> scrapedOffices = scraperService.scrapeTicketOffices(kopisId);
-
-      if(scrapedOffices.isEmpty()) {
-        log.info("스크래핑된 예매처 정보가 없음: KOPIS ID={}", kopisId);
-        return;
-      }
+      List<TicketOfficeScrapeResult> scrapedOffices = scrapeWithRetry(kopisId, musical);
+      if (scrapedOffices.isEmpty()) return;
 
       // 2. 기존 수기입력 데이터와 병합
       Map<String, String> finalOffices = mergeMusicalTicketOffices(musical, scrapedOffices);
@@ -114,12 +112,8 @@ public class TicketOfficeSyncService {
 
     try {
       // 1. 스크래핑으로 예매처 정보 수집
-      List<TicketOfficeScrapeResult> scrapedOffices = scraperService.scrapeTicketOffices(kopisId);
-
-      if (scrapedOffices.isEmpty()) {
-        log.info("스크래핑된 예매처 정보가 없음: KOPIS ID={}", kopisId);
-        return;
-      }
+      List<TicketOfficeScrapeResult> scrapedOffices = scrapeWithRetry(kopisId, concert);
+      if (scrapedOffices.isEmpty()) return;
 
       // 2. 기존 수기입력 데이터와 병합
       Map<String, String> finalOffices = mergeConcertTicketOffices(concert, scrapedOffices);
@@ -556,5 +550,73 @@ public class TicketOfficeSyncService {
             .noDataCount(noDataCount)
             .totalTarget(concerts.size())
             .build();
+  }
+
+  private List<TicketOfficeScrapeResult> scrapeWithRetry(String kopisId, Concert concert) {
+    int maxRetry = scrapingProperties.getMaxRetryCount();
+
+    for(int attempt = 1; attempt <= maxRetry; attempt++) {
+      List<TicketOfficeScrapeResult> result = scraperService.scrapeTicketOffices(kopisId);
+
+      if(!result.isEmpty()) {
+        concert.setKopisTicketScrapeFailCount(0);
+        return result;
+      }
+
+      log.warn("예매처 스크래핑 결과 없음 (시도 {}/{}): KOPIS ID={}", attempt, maxRetry, kopisId);
+
+      if(attempt < maxRetry) {
+        try {
+          Thread.sleep(3000);
+        } catch (InterruptedException ignored) {}
+      }
+    }
+
+    // 모든 재시도 실패
+    int failCount = concert.getKopisTicketScrapeFailCount() == null ? 1 : concert.getKopisTicketScrapeFailCount() + 1;
+    concert.setKopisTicketScrapeFailCount(failCount);
+
+    if(failCount >= maxRetry) {
+      // 임계값 도달 -> 진짜 없는 것으로 판단, 이후 배치에서 제외
+      log.info("예매처 없음 (fail_count={}), KOPIS_ID={}", failCount, kopisId);
+      concert.setKopisTicketOfficesUpdatedAt(LocalDateTime.now());
+    }
+
+    concertRepository.save(concert);
+    return Collections.emptyList();
+  }
+
+  private List<TicketOfficeScrapeResult> scrapeWithRetry(String kopisId, Musical musical) {
+    int maxRetry = scrapingProperties.getMaxRetryCount();
+
+    for(int attempt = 1; attempt <= maxRetry; attempt++) {
+      List<TicketOfficeScrapeResult> result = scraperService.scrapeTicketOffices(kopisId);
+
+      if(!result.isEmpty()) {
+        musical.setKopisTicketScrapeFailCount(0);
+        return result;
+      }
+
+      log.warn("예매처 스크래핑 결과 없음 (시도 {}/{}): KOPIS ID={}", attempt, maxRetry, kopisId);
+
+      if(attempt < maxRetry) {
+        try {
+          Thread.sleep(3000);
+        } catch (InterruptedException ignored) {}
+      }
+    }
+
+    // 모든 재시도 실패
+    int failCount = musical.getKopisTicketScrapeFailCount() == null ? 1 : musical.getKopisTicketScrapeFailCount() + 1;
+    musical.setKopisTicketScrapeFailCount(failCount);
+
+    if(failCount >= maxRetry) {
+      // 임계값 도달 -> 진짜 없는 것으로 판단, 이후 배치에서 제외
+      log.info("예매처 없음 (fail_count={}), KOPIS_ID={}", failCount, kopisId);
+      musical.setKopisTicketOfficesUpdatedAt(LocalDateTime.now());
+    }
+
+    musicalRepository.save(musical);
+    return Collections.emptyList();
   }
 }
