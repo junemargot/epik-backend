@@ -49,4 +49,8 @@ public class ConcertResponseDto {
     }
     return null; // 이미지가 없는 경우
   }
+
+  public String getRunningTime() {
+    return runningTime != null ? runningTime : "예매처 확인";
+  }
 }

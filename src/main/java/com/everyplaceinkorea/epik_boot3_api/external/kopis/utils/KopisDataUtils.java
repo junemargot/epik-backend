@@ -6,6 +6,8 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * KOPIS 데이터 처리 공통 유틸리티 클래스
@@ -88,73 +90,9 @@ public class KopisDataUtils {
      */
     public static String determineRunningTime(KopisPerformanceDto dto) {
         if (isValidString(dto.getPrfruntime())) {
-            return convertToMinutes(dto.getPrfruntime());
+            return dto.getPrfruntime();
         }
         return null;
-    }
-
-    /**
-     * 시간 표현을 분 단위로 통일 (정교한 정규식 사용)
-     * 예: "2시간" -> "120분", "1시간 30분" -> "90분", "총 90분" -> "90분"
-     *
-     * @param timeStr 시간 문자열
-     * @return 분 단위 문자열 (변환 실패 시 원본 반환)
-     */
-    public static String convertToMinutes(String timeStr) {
-        if (timeStr == null || timeStr.trim().isEmpty()) {
-            return null;
-        }
-
-        try {
-            // "총 120분", "120분" 패턴
-            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(총\\s*)?(\\d+)분");
-            java.util.regex.Matcher matcher = pattern.matcher(timeStr);
-
-            if (matcher.find()) {
-                return matcher.group(2) + "분";
-            }
-
-            // "2시간 30분", "2시간" 패턴
-            pattern = java.util.regex.Pattern.compile("(\\d+)시간\\s*(\\d+)?분?");
-            matcher = pattern.matcher(timeStr);
-
-            if (matcher.find()) {
-                int hours = Integer.parseInt(matcher.group(1));
-                int minutes = matcher.group(2) != null ? Integer.parseInt(matcher.group(2)) : 0;
-                int totalMinutes = hours * 60 + minutes;
-                return totalMinutes + "분";
-            }
-
-            // "약 90분" 패턴
-            pattern = java.util.regex.Pattern.compile("약\\s*(\\d+)분");
-            matcher = pattern.matcher(timeStr);
-
-            if (matcher.find()) {
-                return matcher.group(1) + "분";
-            }
-
-            // 숫자만 있는 경우 (분으로 가정)
-            if (timeStr.trim().matches("\\d+")) {
-                return timeStr.trim() + "분";
-            }
-
-        } catch (Exception e) {
-            log.warn("러닝타임 추출 실패: {} - {}", timeStr, e.getMessage());
-        }
-
-        // 변환 실패 시 원본 반환
-        return timeStr;
-    }
-
-    /**
-     * 공연시간 텍스트에서 러닝타임 추출 (상세 버전)
-     * KOPIS 상세 정보의 공연시간 필드에서 러닝타임을 추출
-     *
-     * @param performanceTime 공연시간 텍스트
-     * @return 추출된 러닝타임 (분 단위, 실패 시 null)
-     */
-    public static String extractRunningTime(String performanceTime) {
-        return convertToMinutes(performanceTime);
     }
 
     /**

@@ -96,11 +96,15 @@ public interface MusicalRepository extends JpaRepository<Musical, Long> {
     List<Musical> findByFacilityIsNotNullAndHallIsNull();
 
     @Query("SELECT m FROM Musical m WHERE m.kopisId IS NOT NULL " +
-            "AND (m.kopisTicketOffices IS NULL OR m.kopisTicketOffices = '{}' OR m.kopisTicketOffices = '')")
+            "AND (m.kopisTicketOffices IS NULL OR m.kopisTicketOffices = '{}' OR m.kopisTicketOffices = '')" +
+            "AND m.kopisTicketOfficesUpdatedAt IS NULL " +
+            "AND (m.kopisTicketScrapeFailCount IS NULL OR m.kopisTicketScrapeFailCount < 3)")
     Page<Musical> findMusicalsWithoutTicketOffices(Pageable pageable);
 
     @Query("SELECT m FROM Musical m WHERE m.kopisId IS NOT NULL " +
-            "AND (m.kopisTicketOffices IS NULL OR m.kopisTicketOffices = '{}' OR m.kopisTicketOffices = '')")
+            "AND (m.kopisTicketOffices IS NULL OR m.kopisTicketOffices = '{}' OR m.kopisTicketOffices = '')" +
+            "AND m.kopisTicketOfficesUpdatedAt IS NULL " +
+            "AND (m.kopisTicketScrapeFailCount IS NULL OR m.kopisTicketScrapeFailCount < 3)")
     List<Musical> findMusicalsWithoutTicketOffices();
 
     long countByStatus(Status status);

@@ -121,6 +121,9 @@ public class Musical {
     @Column(name = "kopis_ticket_offices_updated_at")
     private LocalDateTime kopisTicketOfficesUpdatedAt;
 
+    @Column(name = "kopis_ticket_scrape_fail_count")
+    private Integer kopisTicketScrapeFailCount = 0;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "kopis_ticket_offices_source")
     private TicketOfficeSource kopisTicketOfficesSource = TicketOfficeSource.MANUAL;
@@ -237,15 +240,6 @@ public class Musical {
      */
     public void updateFromKopisDetailData(KopisPerformanceDto dto) {
         log.debug("상세 정보 업데이트 시작: {}", this.title);
-
-        // 공연시간 정보 업데이트
-        if (isValidString(dto.getPrftime())) {
-            // 러닝타임 정보 추출 및 업데이트
-            String extractedTime = KopisDataUtils.extractRunningTime(dto.getPrftime());
-            if (extractedTime != null) {
-                this.runningTime = extractedTime;
-            }
-        }
 
         // 티켓가격 정보 업데이트
         if (isValidString(dto.getPcseguidance())) {

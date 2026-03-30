@@ -54,4 +54,8 @@ public class MusicalResponseDto {
         }
         return null;
     }
+
+    public String getRunningTime() {
+        return runningTime != null ? runningTime : "예매처 확인";
+    }
 }
